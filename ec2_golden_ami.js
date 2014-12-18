@@ -16,6 +16,7 @@ function perform(aws) {
   try {
     var alerts  = [];
     var reservations = aws.ec2.describe_instances().reservations;
+    var region = aws.region;
     
     reservations.map(function(reservation) {
         var reservationId = reservation.reservation_id;
@@ -24,15 +25,18 @@ function perform(aws) {
         instances.map(function(instance) {
             var instanceId = instance.instance_id;
             var imageId = instance.image_id;
-            var goldenImageId = "ami-8c1fece5";
+            var goldenImageId = { 
+                "us_east_1": "ami-8c1fece5",
+                "us_west_2": "ami-22222222"
+            };
 
             var report = { instance_id: instanceId, actual_ami: imageId, golden_ami: goldenImageId};
             dsl.set_data(report);
             
-            if (imageId == goldenImageId) {
-                alerts.push(dsl.pass({message: "Instance ID " + instanceId + " is running Golden AMI " + imageId}));
+            if (imageId == goldenImageId[region]) {
+                alerts.push(dsl.pass({message: "REGION: " + region + " - Instance ID " + instanceId + " is running Golden AMI " + imageId}));
             } else {
-                alerts.push(dsl.fail({message: "Instance ID " + instanceId + " is NOT running Golden AMI " + goldenImageId + " — Actual AMI => " + imageId}));
+                alerts.push(dsl.fail({message: "REGION: " + region + " - Instance ID " + instanceId + " is NOT running Golden AMI " + goldenImageId[region] + " — Actual AMI => " + imageId}));
             }
         })
     });
@@ -42,3 +46,4 @@ function perform(aws) {
     return dsl.error({ error: err.message });
   }
 }
+
