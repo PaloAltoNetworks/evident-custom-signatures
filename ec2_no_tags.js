@@ -45,6 +45,6 @@ function perform(aws) {
     return alerts;
 
   } catch (err) {
-    return dsl.error({ error: err.message });
+    return dsl.error({ errors: err.message });
   }
 }
