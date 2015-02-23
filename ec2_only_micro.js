@@ -12,37 +12,60 @@
 //
 
 dsl.configure(function(c) {
-  c.valid_regions     = ['us_east_1'];                  // Only run in us_east_1
-  c.display_as        = 'global';                       // Display as region global instead of region us_east_1
-  c.deep_inspection   = ['users'];                      // Required
-  c.unique_identifier = [{'user_name': 'user_id'}];     // Required
+  c.valid_regions = ['us_east_1'];
+  c.identifier = 'AWS:EC2-707';
+  c.deep_inspection = ['instance_type','instance_id'];
+  c.unique_identifier = [ 'instance_id' ];
 });
 
 function perform(aws) {
   try {
 
     var region = aws.region;
-    var alerts  = [];
+    var alerts = [];
     var reservations = aws.ec2.describe_instances().reservations;
 
     var string_to_check_for = 'micro'
 
-    reservations.map(function(element){
-        element.instances.map(function(instance){
+    reservations.map(function(element) {
+      element.instances.map(function(instance) {
 
-            if(instance.instance_type.indexOf(string_to_check_for) === -1){
-                var fail_message = 'instance with id ' + instance.instance_id + ' is not a micro instance. It is of the type : ' + instance.instance_type
-                alerts.push(dsl.fail({message: fail_message}));
-            } else {
-                var pass_message = 'instance with id ' + instance.instance_id + ' is a micro instance.'
-                alerts.push(dsl.pass({message: pass_message}));
-            }
+        var report = {
+          instance_type: instance.instance_type,
+          instance_id: instance.instance_id
+        };
+        dsl.set_data(report);
 
-        })
+        if (instance.instance_type.indexOf(string_to_check_for) === -1) {
+
+          var fail_message = 'instance with id '
+          fail_message += instance.instance_id
+          fail_message += ' is not a micro instance. It is of the type : '
+          fail_message += instance.instance_type
+
+          alerts.push(dsl.fail({
+            message: fail_message
+          }));
+
+        } else {
+
+          var pass_message = 'instance with id '
+          pass_message += instance.instance_id + ' is a micro instance.'
+
+          alerts.push(dsl.pass({
+            message: pass_message
+          }));
+
+        }
+
+      })
     })
+
     return alerts;
 
   } catch (err) {
-    return dsl.error({ errors: err.message });
+    return dsl.error({
+      errors: err.message
+    });
   }
 }

@@ -1,5 +1,5 @@
 //
-// ec2_only_micro.js - @billautomata
+// ec2_no_tags.js - @billautomata
 // PROVIDED AS IS WITH NO WARRANTY OR GUARANTEES
 //
 //  This signature checks each instance in a region and determines if there
@@ -12,39 +12,61 @@
 //
 
 dsl.configure(function(c) {
-  c.valid_regions     = ['us_east_1'];                  // Only run in us_east_1
-  c.display_as        = 'global';                       // Display as region global instead of region us_east_1
-  c.deep_inspection   = ['users'];                      // Required
-  c.unique_identifier = [{'user_name': 'user_id'}];     // Required
+  c.valid_regions = ['us_east_1'];
+  c.identifier = 'AWS:EC2-303';
+  c.deep_inspection = ['tags','instance_id','tags_length'];
+  c.unique_identifier = [ 'instance_id' ];
 });
 
 function perform(aws) {
   try {
 
     var region = aws.region;
-    var alerts  = [];
+    var alerts = [];
     var reservations = aws.ec2.describe_instances().reservations;
 
-    var string_to_check_for = 'micro'
+    reservations.map(function(element) {
+      element.instances.map(function(instance) {
 
-    reservations.map(function(element){
-        element.instances.map(function(instance){
+        var report = {
+          tags: instance.tags,
+          instance_id: instance.instance_id,
+          tags_length: instance.tags.length
+        };
 
-          var tags_length = instance.tags.length
+        dsl.set_data(report);
 
-            if(tags_length === 0){
-                var fail_message = 'instance with id ' + instance.instance_id + ' has no tags set.'
-                alerts.push(dsl.fail({message: fail_message}));
-            } else {
-                var pass_message = 'instance with id ' + instance.instance_id +' has tags set. It has ' + tags_length + ' tag(s).'
-                alerts.push(dsl.pass({message: pass_message}));
-            }
+        var tags_length = instance.tags.length
 
-        })
+        if (tags_length === 0) {
+
+          var fail_message = 'instance with id '
+          fail_message += instance.instance_id
+          fail_message += ' has no tags set.'
+
+          alerts.push(dsl.fail({
+            message: fail_message
+          }));
+
+        } else {
+
+          var pass_message = 'instance with id '
+          pass_message += instance.instance_id
+          pass_message += ' has tags set. It has ' + tags_length + ' tag(s).'
+
+          alerts.push(dsl.pass({
+            message: pass_message
+          }));
+
+        }
+
+      })
     })
     return alerts;
 
   } catch (err) {
-    return dsl.error({ errors: err.message });
+    return dsl.error({
+      errors: err.message
+    });
   }
 }

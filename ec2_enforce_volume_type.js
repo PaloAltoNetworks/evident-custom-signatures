@@ -1,5 +1,5 @@
 //
-// ec2_only_micro.js - @billautomata
+// ec2_enforce_volume_type.js - @billautomata
 // PROVIDED AS IS WITH NO WARRANTY OR GUARANTEES
 //
 //  This signature checks each volume in a region and determines if the
@@ -12,38 +12,59 @@
 //
 
 dsl.configure(function(c) {
-  c.valid_regions     = ['us_east_1'];                  // Only run in us_east_1
-  c.display_as        = 'global';                       // Display as region global instead of region us_east_1
-  c.deep_inspection   = ['users'];                      // Required
-  c.unique_identifier = [{'user_name': 'user_id'}];     // Required
+  c.valid_regions = ['us_east_1'];
+  c.identifier = 'AWS:EC2-909'
+  c.deep_inspection = ['volume_type', 'volume_id'];
+  c.unique_identifier = ['volume_id'];
 });
 
 function perform(aws) {
   try {
 
     var region = aws.region;
-    var alerts  = [];
+    var alerts = [];
     var reservations = aws.ec2.describe_instances().reservations;
     var volumes = aws.ec2.describe_volumes().volumes;
 
     var type_to_check_for = 'standard'
 
-    volumes.map(function(volume){
+    volumes.map(function(volume) {
 
+      var report = {
+        volume_type: volume.volume_type,
+        volume_id: volume.volume_id
+      };
+      dsl.set_data(report);
 
-        if(volume.volume_type !== type_to_check_for){
-            var fail_message = 'volume with id ' + volume.volume_id + ' is of type ' + volume.volume_type + ' and not of type ' + type_to_check_for;
-            alerts.push(dsl.fail({message:fail_message}));
-        } else {
-            var pass_message = 'volume with id ' + volume.volume_id + ' is of type ' + volume.volume_type;
-            alerts.push(dsl.pass({message:pass_message}));
-        }
+      if (volume.volume_type !== type_to_check_for) {
+
+        var fail_message = 'volume with id '
+        fail_message += volume.volume_id + ' is of type '
+        fail_message += volume.volume_type + ' and not of type '
+        fail_message += type_to_check_for;
+
+        alerts.push(dsl.fail({
+          message: fail_message
+        }));
+
+      } else {
+
+        var pass_message = 'volume with id ' + volume.volume_id
+        pass_message += ' is of type ' + volume.volume_type;
+
+        alerts.push(dsl.pass({
+          message: pass_message
+        }));
+
+      }
 
     })
 
     return alerts;
 
   } catch (err) {
-    return dsl.error({ errors: err.message });
+    return dsl.error({
+      errors: err.message
+    });
   }
 }
