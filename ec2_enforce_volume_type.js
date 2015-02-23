@@ -23,7 +23,6 @@ function perform(aws) {
 
     var region = aws.region;
     var alerts = [];
-    var reservations = aws.ec2.describe_instances().reservations;
     var volumes = aws.ec2.describe_volumes().volumes;
 
     var type_to_check_for = 'standard'
