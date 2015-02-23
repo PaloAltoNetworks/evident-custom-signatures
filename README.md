@@ -1,16 +1,32 @@
 # Custom Signatures
 
-This is a repo of custom signature samples that you can use in your environment. Source code files are provided for demonstration purposes only.
+This is a repo of custom signature samples that you can use in your environment.
+
+Source code files are provided for demonstration purposes only.
 
 Please email support@evident.io if you have any questions.
 
 # Custom Signature Tutorial ( javascript )
 
-A custom signature will have two sections, `config` and `perform`.
+##`overview`
+A custom signature is a function that reads [AWS SDK](http://docs.aws.amazon.com/sdkforruby/api/) data from Amazon, and creates one or more __alerts__ based on that data and conditionals you describe.  
+
+An __alert__ has
+* a status of `pass` `fail` `warn` or `error`
+* identifying metadata such as `instance_id` or `logging_status`
+* This field is used to identify unique alerts that share the same signature but describe different AWS resources (ex. `volume_id` `instance_id` `bucket_name`)
+
+* * *
+
+A custom signature will always have two sections `config` and `perform`.  
+
+In the `config` section you define the parameters your signature will use when it runs. For example, you set which region you are interested in checking, and you give the signature a unique id.
+
+In the `perform` section you write a function that implements your security policy, and creates one or more __alerts__.  The alerts are themselves are created using the `dsl.pass()` and `dsl.fail()` functions. Take those objects returned by the functions and push them onto an array of __alerts__. When you are done return them at the end of the `perform` block.  Each __alert__ is then stored in the database.
 
 ##`config`
 
-An example `config` section:
+An example `config` section
 ```javascript
 dsl.configure(function(c) {
   c.valid_regions = ['us_east_1'];
@@ -19,25 +35,30 @@ dsl.configure(function(c) {
   c.unique_identifier = ['volume_id'];
 });
 ```
-`dsl.configure` is a function passed a callback that receives an object `c` as
- the first argument.  Inside the anonymous function you will change the
-  configuration metadata for the signature.
+`dsl.configure` is a function that is passed an anonymous callback function that receives a configuration object (here `c`) as the first argument.  Inside the anonymous function you have access the configuration settings for the signature.
 
 
 ####configuration metadata
 
-`valid_regions` An array of valid regions is passed, ex. `us_east_1` `us_west_2`
+####`valid_regions`
+* An array of regions to run the signature
+* ex. `['us_east_1', 'us_west_2']`
 
-`identifier` A unique string identifying the signature in the database. Usually
-takes the form `AWS:SERVICE_CODE-SOME_NUMBER`,  ex. `AWS:EC2-303`
-`AWS:R52:909`
+####`identifier`
+* A unique string identifying the signature in the database. Usually takes the
+form `AWS:SERVICE_CODE-SOME_NUMBER`
+* ex. `AWS:EC2-303` or `AWS:R52:909`
 
-`deep_inspection` An array of fields that provide additional information beyond
-the status when an alert is viewed in the actual report.  These fields are
-populated in the `perform` block.
+####`deep_inspection`
+* An array of fields that provide additional information beyond the status when
+an alert is viewed in the actual report.  
+* These fields are referenced in the `perform` block when you call
+`dsl.set_data()`
 
-`deep_inspection` An array of fields that are used to list the alert as unique
- in the database.
+####`unique_identifier`
+* An array of fields that are used to identify the alert as unique in the
+ database.
+* This is commonly unique to the resource being described in the alert.
 
 ##`perform`
 
@@ -54,12 +75,20 @@ function perform(aws){
     var alerts = []
 
     // make some AWS calls to get an array of resources
+    //
     // for each resource
-    //    read some resource information
-    //    save some of that resource information to the report
+    // {
+    //    read some resource information using the aws object passed to the
+    //    perform function
+    //
+    //    store some of that resource information to the report using
+    //    dsl.set_data()
+    //
     //    compare it to a desired value or state
-    //    push a dsl.fail() or dsl.pass() to the alerts container
-    //      ex. alerts.push(dsl.fail({message:'failed'}))
+    //      push a dsl.pass() or dsl.fail() to the alerts container
+    //        ex. alerts.push(dsl.fail({message:'failed'}))
+    // }
+    //
 
     return alerts;
 
