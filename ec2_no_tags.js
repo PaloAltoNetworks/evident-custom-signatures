@@ -45,6 +45,7 @@ function perform(aws) {
           fail_message += ' has no tags set.'
 
           alerts.push(dsl.fail({
+            resource_id: instance.instance_id,
             message: fail_message
           }));
 
@@ -55,6 +56,7 @@ function perform(aws) {
           pass_message += ' has tags set. It has ' + tags_length + ' tag(s).'
 
           alerts.push(dsl.pass({
+            resource_id: instance.instance_id,
             message: pass_message
           }));
 
