@@ -20,9 +20,9 @@ function perform(aws) {
       dsl.set_data(report);
 
       if (bucket_log.logging_enabled) {
-        alerts.push(dsl.pass({message: "Bucket " + bucketName + " has logging enabled"}))
+        alerts.push(dsl.pass({resource_id: bucketName, message: "Bucket " + bucketName + " has logging enabled"}))
       } else {
-        alerts.push(dsl.fail({message: "Bucket " + bucketName + " does not have logging enabled"}))
+        alerts.push(dsl.fail({resource_id: bucketName, message: "Bucket " + bucketName + " does not have logging enabled"}))
       }
     });
 
