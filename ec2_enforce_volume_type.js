@@ -43,6 +43,7 @@ function perform(aws) {
         fail_message += type_to_check_for;
 
         alerts.push(dsl.fail({
+          resource_id: volume_id,
           message: fail_message
         }));
 
@@ -52,6 +53,7 @@ function perform(aws) {
         pass_message += ' is of type ' + volume.volume_type;
 
         alerts.push(dsl.pass({
+          resource_id: volume_id,
           message: pass_message
         }));
 
