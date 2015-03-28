@@ -4,7 +4,7 @@
 //
 // Checks us-east-1 and us-west-1 for EC2 Instances Running CIS Hardened
 // Ubuntu Linux 14.04 LTS AMIs
-//
+// http://benchmarks.cisecurity.org/downloads/show-single/?file=ubuntu1404.100
 
 dsl.configure(function(c){
   c.deep_inspection   = ['instance_id', 'actual_ami', 'cis_ami'];
