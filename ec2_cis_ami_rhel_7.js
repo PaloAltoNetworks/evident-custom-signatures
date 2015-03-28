@@ -4,7 +4,7 @@
 //
 // Checks us-east-1 and us-west-1 for EC2 Instances Running CIS Hardened
 // Red Hat Enterprise Linux 7 AMIs
-//
+// http://benchmarks.cisecurity.org/downloads/show-single/index.cfm?file=rhel7.100
 
 dsl.configure(function(c){
   c.deep_inspection   = ['instance_id', 'actual_ami', 'cis_ami'];
