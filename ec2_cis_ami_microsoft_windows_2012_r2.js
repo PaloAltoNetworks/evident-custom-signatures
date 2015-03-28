@@ -1,5 +1,5 @@
 //
-// ec2_cis_microsoft_windows_2012_r2.js - Justin Lundy (jbl@evident.io)
+// ec2_cis_ami_microsoft_windows_2012_r2.js - Justin Lundy (jbl@evident.io)
 // PROVIDED AS IS WITH NO WARRANTY OR GUARANTEES
 //
 // Checks us-east-1 and us-west-1 for EC2 Instances Running CIS Hardened
