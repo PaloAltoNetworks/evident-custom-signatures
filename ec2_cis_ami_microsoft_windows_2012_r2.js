@@ -4,7 +4,7 @@
 //
 // Checks us-east-1 and us-west-1 for EC2 Instances Running CIS Hardened
 // Microsoft Windows Server 2012 R2 AMIs
-//
+// http://benchmarks.cisecurity.org/downloads/show-single/index.cfm?file=windows2012R2.110
 
 dsl.configure(function(c){
   c.deep_inspection   = ['instance_id', 'actual_ami', 'cis_ami'];
