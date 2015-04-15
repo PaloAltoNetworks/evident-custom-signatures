@@ -44,6 +44,7 @@ function perform(aws) {
           fail_message += instance.instance_type
 
           alerts.push(dsl.fail({
+            resource_id: instance.instance_id,
             message: fail_message
           }));
 
@@ -53,6 +54,7 @@ function perform(aws) {
           pass_message += instance.instance_id + ' is a micro instance.'
 
           alerts.push(dsl.pass({
+            resource_id: instance.instance_id,
             message: pass_message
           }));
 
