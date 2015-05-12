@@ -1,3 +1,11 @@
+//
+// ec2_instance_profile_name_check.rb - John Martinez (john@evident.io)
+// PROVIDED AS IS WITH NO WARRANTY OR GUARANTEES
+//
+// Description:
+// Instance Profile names should adhere to corporate standards
+//
+
 configure do |c|
   c.deep_inspection   = [:instance_id, :profile_arn, :tags]
   c.unique_identifier = [:instance_id]
