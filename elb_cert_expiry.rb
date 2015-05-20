@@ -1,10 +1,10 @@
 ##
-## iam_check_interactive_mfa_users.rb - John Martinez (john@evident.io)
+## elb_cert_expiry.rb - John Martinez (john@evident.io)
 ## PROVIDED AS IS WITH NO WARRANTY OR GUARANTEES
 ##
 ## Description:
-## This check returns a fail if an interactive IAM user (a user with a password set)
-## does not have an MFA device assigned.
+## Checks how close the SSL certificates assigned to the HTTPS listener of an
+## Elastic Load Balancer is to expiring
 ##
 
 configure do |c|
