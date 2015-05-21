@@ -1,11 +1,11 @@
-//
-// iam_check_interactive_mfa_users.rb - John Martinez (john@evident.io)
-// PROVIDED AS IS WITH NO WARRANTY OR GUARANTEES
-//
-// Description:
-// This check returns a fail if an interactive IAM user (a user with a password set)
-// does not have an MFA device assigned.
-//
+##
+## iam_check_interactive_mfa_users.rb - John Martinez (john@evident.io)
+## PROVIDED AS IS WITH NO WARRANTY OR GUARANTEES
+##
+## Description:
+## This check returns a fail if an interactive IAM user (a user with a password set)
+## does not have an MFA device assigned.
+##
 
 configure do |c|
     c.deep_inspection   = [:user_name, :login_profile, :mfa_devices]
