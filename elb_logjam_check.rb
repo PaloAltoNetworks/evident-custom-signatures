@@ -34,7 +34,7 @@ def perform(aws)
                       attribute_name = attribute[:attribute_name]
                       attribute_value = attribute[:attribute_value]
 
-                      if (attribute_name =~ /^DHE.*$/) 
+                      if (attribute_name =~ /^DHE-RSA.*$/) 
                         if attribute_value.downcase == 'true'
                             failed_attributes << attribute_name
                         end
