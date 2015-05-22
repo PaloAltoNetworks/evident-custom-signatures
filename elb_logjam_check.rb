@@ -8,7 +8,7 @@
 ##
 
 configure do |c|
-    c.deep_inspection   = [:load_balancer_name, :load_balancer_listener, :vulnerable_ciphers, :load_balancer, :ssl_policy]
+    c.deep_inspection   = [:load_balancer_name, :load_balancer_dns_name, :load_balancer_listener, :vulnerable_ciphers, :load_balancer, :ssl_policy]
     c.unique_identifier = [:load_balancer_name]
 end
 
@@ -34,7 +34,7 @@ def perform(aws)
                       attribute_name = attribute[:attribute_name]
                       attribute_value = attribute[:attribute_value]
 
-                      if (attribute_name =~ /^DHE-RSA.*$/) 
+                      if (attribute_name =~ /^DHE.*$/) 
                         if attribute_value.downcase == 'true'
                             failed_attributes << attribute_name
                         end
@@ -43,7 +43,7 @@ def perform(aws)
                     end
                   end
 
-                  set_data(load_balancer_name: load_balancer_name, load_balancer_listener: load_balancer_listener, vulnerable_ciphers: failed_attributes, load_balancer: load_balancer, ssl_policy: ssl_policy)
+                  set_data(load_balancer_name: load_balancer_name, load_balancer_dns_name: load_balancer_dns_name, load_balancer_listener: load_balancer_listener, vulnerable_ciphers: failed_attributes, load_balancer: load_balancer, ssl_policy: ssl_policy)
                   if failed_attributes.empty?
                     pass(message: "Load Balancer #{load_balancer_name} is not vulnerable to LogJam", resource_id: load_balancer_name)
                   else
