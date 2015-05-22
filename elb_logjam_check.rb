@@ -5,6 +5,7 @@
 ## Description:
 ## Checks for ELBs vulnerable to LogJam (https://weakdh.org)
 ## Reports SSL Ciphers in the SSL Negotiation Policy of an ELB that support DHE_EXPORT
+## More info: https://forums.aws.amazon.com/ann.jspa?annID=3061
 ##
 
 configure do |c|
