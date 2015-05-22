@@ -9,6 +9,8 @@
 configure do |c|
     c.deep_inspection   = [:user_name, :access_key_id, :last_used_date, :last_used_region, :elapsed_hours, :user]
     c.unique_identifier = [:user_name]
+    c.valid_regions = [:us_east_1]
+    c.display_as = :global
 end
 
 def perform(aws)
