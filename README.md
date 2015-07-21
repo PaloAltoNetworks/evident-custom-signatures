@@ -185,3 +185,49 @@ function perform(aws) {
   }
 }
 ```
+
+# Supported Services
+
+| Class Name | Method Name |
+|------------|-------------|
+| AutoScaling | as |
+| CloudFormation | cfm |
+| CloudFront | cf |
+| CloudSearch | cs |
+| CloudTrail | ct |
+| CloudWatch | cw |
+| CloudWatchLogs | cwl |
+| CodeDeploy | cd |
+| CognitoIdentity | cognito |
+| CognitoSync | cognito_sync |
+| ConfigService | config |
+| DataPipeline | dp |
+| DirectConnect | dc |
+| DynamoDB | dynamodb |
+| EC2 | ec2 |
+| EMR | emr |
+| ElastiCache | ec |
+| ElasticBeanstalk | elbs |
+| ElasticLoadBalancing | elb |
+| ElasticTranscoder | elt |
+| Glacier | glacier |
+| IAM | iam |
+| ImportExport | ie |
+| KMS | kms |
+| Kinesis | ks |
+| Lambda | lambda |
+| OpsWorks | ops |
+| RDS | rds |
+| Redshift | rs |
+| Route53 | route53 |
+| Route53Domains | route53_domains |
+| S3 | s3 |
+| SES | ses |
+| SNS | sns |
+| SQS | sqs |
+| STS | sts |
+| SWF | swf |
+| SimpleDB | sdb |
+| StorageGateway | sg |
+| Support | support |
+
