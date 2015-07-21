@@ -188,6 +188,8 @@ function perform(aws) {
 
 # Supported Services
 
+When calling AWS methods and classes within Custom Signatures, please use the list below as a reference.
+
 | Class Name | Method Name |
 |------------|-------------|
 | AutoScaling | as |
