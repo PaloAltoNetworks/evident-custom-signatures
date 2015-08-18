@@ -23,7 +23,7 @@ def perform(aws)
 
         access_keys = aws.iam.list_access_keys(user_name: user_name)
 
-        if access_keys.length > 0
+        if access_keys.access_key_metadata.length > 0
             access_keys.access_key_metadata.each do |access_key|
                 access_key_id = access_key[:access_key_id]
 
