@@ -44,14 +44,15 @@ def perform(aws)
                 sg_pass_count += 1
             end
         end
+        set_data(@database, ip_permission: @sg_ingress_rule)
+        if sg_fail_count >= 1
+            fail(message: "RDS DB #{db_name} has TCP port #{@db_port} (#{db_engine}) open to the world", resource_id: db_name)
+        else
+            pass(message: "RDS DB #{db_name} does not have TCP port #{@db_port} (#{db_engine}) open to the world", resource_id: db_name)
+        end
     end
     
-    set_data(@database, ip_permission: @sg_ingress_rule)
-    if sg_fail_count >= 1
-        fail(message: "RDS DB #{db_name} has TCP port #{@db_port} (#{db_engine}) open to the world", resource_id: db_name)
-    else
-        pass(message: "RDS DB #{db_name} does not have TCP port #{@db_port} (#{db_engine}) open to the world", resource_id: db_name)
-    end
+
 end
 
 def eval_sg(security_groups)
