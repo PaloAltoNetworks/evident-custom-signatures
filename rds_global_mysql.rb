@@ -10,8 +10,8 @@
 ##
 
 configure do |c|
-    c.deep_inspection   = [:vpc_security_groups, :db_instance_identifier, :engine, :endpoint, :ip_permission]
-    c.unique_identifier = [:db_name]
+    c.deep_inspection   = [:vpc_security_groups, :db_name, :db_instance_identifier, :engine, :endpoint, :ip_permission]
+    c.unique_identifier = [:rds_name]
 end
 
 def perform(aws)
@@ -20,6 +20,8 @@ def perform(aws)
     sg = nil
     db = nil
     db_name = nil
+    db_instance_identifier = nil
+    rds_name = nil
     db_engine = nil
     @sg_ingress_rule = []
     @db_port = 3306
@@ -29,8 +31,16 @@ def perform(aws)
     rds.each do |db|
         @database = db
         db_name = db.db_name
+        db_instance_identifier = db.db_instance_identifier
         db_sgs = db.vpc_security_groups
         db_engine = db.engine
+        
+        if db_name == nil
+            rds_name = db_instance_identifier
+        else
+            rds_name = db_name
+        end
+        
         db_sgs.each do |db_sg|
             sg = db_sg.vpc_security_group_id
             describe_sg = aws.ec2.describe_security_groups({group_ids: [sg]})
@@ -46,9 +56,9 @@ def perform(aws)
         end
         set_data(@database, ip_permission: @sg_ingress_rule)
         if sg_fail_count >= 1
-            fail(message: "RDS DB #{db_name} has TCP port #{@db_port} (#{db_engine}) open to the world", resource_id: db_name)
+            fail(message: "RDS DB #{rds_name} has TCP port #{@db_port} (#{db_engine}) open to the world", resource_id: rds_name)
         else
-            pass(message: "RDS DB #{db_name} does not have TCP port #{@db_port} (#{db_engine}) open to the world", resource_id: db_name)
+            pass(message: "RDS DB #{rds_name} does not have TCP port #{@db_port} (#{db_engine}) open to the world", resource_id: rds_name)
         end
     end
     
