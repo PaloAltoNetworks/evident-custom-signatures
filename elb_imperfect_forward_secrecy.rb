@@ -44,9 +44,9 @@ def perform(aws)
 
                   set_data(load_balancer_name: load_balancer_name, load_balancer_dns_name: load_balancer_dns_name, load_balancer_listener: load_balancer_listener, vulnerable_ciphers: failed_attributes, load_balancer: load_balancer, ssl_policy: ssl_policy)
                   if failed_attributes.empty?
-                    pass(message: "Load Balancer #{load_balancer_name} is not vulnerable to LogJam", resource_id: load_balancer_name)
+                    pass(message: "Load Balancer #{load_balancer_name} is not vulnerable to Diffie Hellman Key Exchange attacks", resource_id: load_balancer_name)
                   else
-                    fail(message: "Load Balancer #{load_balancer_name} permits DHE_EXPORT ciphers and is vulnerable to LogJam", resource_id: load_balancer_name)
+                    fail(message: "Load Balancer #{load_balancer_name} supports vulnerable Diffie Hellman Key Exchange", resource_id: load_balancer_name)
                   end
                 
                 end
