@@ -1,7 +1,9 @@
 ## elb_imperfect_forward_secrecy.rb 
+##
 ## Description:
-## Check for ELBs vulnerable to Diffie Hellman Key Exchange (https://weakdh.org)
-## Reports SSL Ciphers in the SSL Negotiation Policy of an ELB that support any DHE
+##
+## Check for ELBs with SSL vulnerable to Diffie Hellman Key Exchange attacks (https://weakdh.org)
+##
 ## More info: https://weakdh.org/imperfect-forward-secrecy-ccs15.pdf
 
 configure do |c|
