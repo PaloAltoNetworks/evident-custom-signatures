@@ -1,8 +1,8 @@
-## elb_dhe_check.rb 
+## elb_imperfect_forward_secrecy.rb 
 ## Description:
-## Checks for ELBs using Diffie Hellman  (https://weakdh.org)
-## Reports SSL Ciphers in the SSL Negotiation Policy of an ELB that support DHE_EXPORT
-## More info: https://forums.aws.amazon.com/ann.jspa?annID=3061
+## Check for ELBs vulnerable to Diffie Hellman Key Exchange (https://weakdh.org)
+## Reports SSL Ciphers in the SSL Negotiation Policy of an ELB that support any DHE
+## More info: https://weakdh.org/imperfect-forward-secrecy-ccs15.pdf
 
 configure do |c|
     c.deep_inspection   = [:load_balancer_name, :load_balancer_dns_name, :load_balancer_listener, :vulnerable_ciphers, :load_balancer, :ssl_policy]
