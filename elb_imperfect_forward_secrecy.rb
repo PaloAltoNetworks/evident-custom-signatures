@@ -46,7 +46,7 @@ def perform(aws)
                   if failed_attributes.empty?
                     pass(message: "Load Balancer #{load_balancer_name} is not vulnerable to Diffie Hellman Key Exchange attacks", resource_id: load_balancer_name)
                   else
-                    fail(message: "Load Balancer #{load_balancer_name} supports vulnerable Diffie Hellman Key Exchange", resource_id: load_balancer_name)
+                    fail(message: "Load Balancer #{load_balancer_name} is vulnerable to Diffie Hellman Key Exchange attacks", resource_id: load_balancer_name)
                   end
                 
                 end
