@@ -50,7 +50,11 @@ def perform(aws)
     
     set_data(ec2_instance_count: ec2_instance_count, rds_instance_count: rds_instance_count, elasticache_node_count: elasticache_node_count, redshift_node_count: redshift_node_count, emr_instance_count: emr_instance_count)
 
-    warn(message: "Total instance counts in region #{aws.region}: #{total_count}", instance_count: total_count)
+    if total_count > 0
+        warn(message: "Total instance counts in region #{aws.region}: #{total_count}", instance_count: total_count)
+    else
+        pass(message: "Total instance counts in region #{aws.region} is #{total_count}", instance_count: total_count)
+    end
 
 end
 
