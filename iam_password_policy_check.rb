@@ -8,6 +8,8 @@
 ## to a built in signature and provided as an example.  In the paid version of 
 ## the platform, this is a copyable signature AWS:IAM-002
 ##
+## When testing this signature for expected results use the us_east_1 region
+##
 ## If you choose to use this signature, it is recomended that you supress
 ## AWS:IAM-002 since they are checking the same policy just with different 
 ## options.
@@ -31,8 +33,13 @@ def perform(aws)
   else
     fail
   end
-rescue StandardError => e
-  error(errors: e.message)
+
+ rescue StandardError => e
+ if (e.message.include? "cannot be found")
+   fail(condition: 'No password policy is presently available for this account.') 
+ else
+   error(errors: e.message)
+ end
 end
 
 def valid_password_policy?(password_policy)
