@@ -46,14 +46,21 @@ def perform(aws)
             effect = nil
             principal = nil
             action = nil
-            
+            condition = nil
+            source_ip = nil
+
             policy.each do |policy_statement|
                 
                 effect = policy_statement["Effect"]
                 principal = policy_statement["Principal"]["AWS"]
                 action = policy_statement["Action"]
+                condition = policy_statement["Condition"]
                 
-                if effect == "Allow" && principal == "*" && action == "es:*"
+                if condition != nil
+                    source_ip = policy_statement["Condition"]["IpAddress"]["aws:SourceIp"]
+                end
+                
+                if effect == "Allow" && principal == "*" && action == "es:*" && source_ip == nil
                     fail_count += 1
                 end
                 
