@@ -1,5 +1,7 @@
 ##
 ## elastic_search_open_access_policy.rb - John Martinez (john@evident.io)
+## Copyright (c) 2017 Evident.io, Inc.
+## PROVIDED AS IS WITH NO WARRANTY OR GUARANTEES
 ##
 ## Name: Elasticsearch Domain with Open Access Policy
 ##
