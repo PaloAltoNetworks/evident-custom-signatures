@@ -64,11 +64,13 @@ def perform(aws)
                     action = policy_statement["Action"]
                     condition = policy_statement["Condition"]
                 
-                    if condition != nil
+                    if condition != nil && condition.has_key?("IpAddress")
                         source_ip = policy_statement["Condition"]["IpAddress"]["aws:SourceIp"]
+                    else
+                        source_ip = "N/A"
                     end
                 
-                    if effect == "Allow" && principal == "*" && action == "es:*" && source_ip == nil
+                    if effect == "Allow" && principal == "*" && action == "es:*" && (source_ip == nil || source_ip == "0.0.0.0/0")
                         fail_count += 1
                     end
                 
