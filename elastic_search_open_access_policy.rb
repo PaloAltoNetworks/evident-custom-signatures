@@ -17,6 +17,9 @@
 ## 
 configure do |c|
     c.deep_inspection = [:domain_id, :arn, :endpoint, :access_policies]
+    c.valid_regions = [:us_east_1, :us_east_2, :us_west_1, :us_west_2, :ap_south_1, :ap_northeast_2,
+                        :ap_southeast_1, :ap_southeast_2, :ap_northeast_1, :eu_central_1,
+                        :eu_west_1, :sa_east_1]
     c.unique_identifier  = [:domain_name]
 end
 
