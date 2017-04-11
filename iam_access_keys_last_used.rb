@@ -8,7 +8,7 @@
 
 configure do |c|
     c.deep_inspection   = [:user_name, :access_key_id, :last_used_date, :last_used_region, :elapsed_hours, :user]
-    c.unique_identifier = [:user_name]
+    c.unique_identifier = [:access_key_id]
     c.valid_regions = [:us_east_1]
     c.display_as = :global
 end
@@ -35,7 +35,7 @@ def perform(aws)
 
                 if last_used_date.nil?
                     set_data(user_name: user_name, access_key_id: access_key_id, last_used_date: last_used_date, last_used_region: last_used_region, user: user)
-                    warn(message: "User's (#{user_name}) access key has never been used", resource_id: user_name)
+                    warn(message: "Access key has never been used", resource_id: access_key_id)
                 else
                     now = Time.now
                     used = last_used_date
@@ -43,18 +43,15 @@ def perform(aws)
                     
                     set_data(user_name: user_name, access_key_id: access_key_id, last_used_date: last_used_date, last_used_region: last_used_region, elapsed_hours: hours, user: user)
                     if (hours <= 0) 
-                        fail(message: "User's (#{user_name}) access key was used within the last hour", resource_id: user_name)
+                        fail(message: "Access key was used within the last hour", resource_id: access_key_id)
                     elsif (hours > 0 && hours <=24)
-                        warn(message: "User's (#{user_name}) access key was used within the last 24 hours", resource_id: user_name)
+                        warn(message: "Access key was used within the last 24 hours", resource_id: access_key_id)
                     else
-                        pass(message: "User's (#{user_name}) access key was used more than 24 hours ago", resource_id: user_name)
+                        pass(message: "Access key was used more than 24 hours ago", resource_id: access_key_id)
                     end
                 end
                 
             end
-        else
-            set_data(user_name: user_name)
-            pass(message: "User #{user_name} has no access key", resource_id: user_name)
         end
 
     end
