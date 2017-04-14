@@ -15,7 +15,6 @@ dsl.configure(function(c) {
   c.valid_regions = ['us_east_1'];
   c.identifier = 'AWS:EC2-909'
   c.deep_inspection = ['volume_type', 'volume_id'];
-  c.unique_identifier = ['volume_id'];
 });
 
 function perform(aws) {
@@ -43,6 +42,7 @@ function perform(aws) {
         fail_message += type_to_check_for;
 
         alerts.push(dsl.fail({
+          resource_id: volume.volume_id,
           message: fail_message
         }));
 
@@ -52,6 +52,7 @@ function perform(aws) {
         pass_message += ' is of type ' + volume.volume_type;
 
         alerts.push(dsl.pass({
+          resource_id: volume.volume_id,
           message: pass_message
         }));
 
