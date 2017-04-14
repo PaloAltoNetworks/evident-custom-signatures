@@ -34,19 +34,19 @@ def perform(aws)
 
                 if last_used_date.nil?
                     set_data(user_name: user_name, access_key_id: access_key_id, last_used_date: last_used_date, last_used_region: last_used_region, user: user)
-                    warn(message: "User's (#{user_name}) access key (#{access_key_id}) has never been used", resource_id: access_key_id)
+                    warn(message: "Access key has never been used", resource_id: access_key_id)
                 else
                     now = Time.now
                     used = last_used_date
                     hours = ((now - used) / 3600).to_i
                     
                     set_data(user_name: user_name, access_key_id: access_key_id, last_used_date: last_used_date, last_used_region: last_used_region, elapsed_hours: hours, user: user)
-                    if (hours <= 0)
-                        fail(message: "User's (#{user_name}) access key (#{access_key_id}) was used within the last hour", resource_id: access_key_id)
+                    if (hours <= 0) 
+                        fail(message: "Access key was used within the last hour", resource_id: access_key_id)
                     elsif (hours > 0 && hours <=24)
-                        warn(message: "User's (#{user_name}) access key (#{access_key_id}) was used within the last 24 hours", resource_id: access_key_id)
+                        warn(message: "Access key was used within the last 24 hours", resource_id: access_key_id)
                     else
-                        pass(message: "User's (#{user_name}) access key (#{access_key_id}) was used more than 24 hours ago", resource_id: access_key_id)
+                        pass(message: "Access key was used more than 24 hours ago", resource_id: access_key_id)
                     end
                 end
                 
