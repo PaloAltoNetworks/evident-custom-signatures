@@ -4,7 +4,6 @@
 //
 dsl.configure(function(c){
   c.deep_inspection   = ['instance_id', 'tag_key', 'tag_value'];
-  c.unique_identifier = ['instance_id'];
 });
 
 function perform(aws) {

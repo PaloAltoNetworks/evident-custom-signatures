@@ -8,7 +8,6 @@
 
 dsl.configure(function(c){
   c.deep_inspection   = ['instance_id', 'actual_ami', 'cis_ami'];
-  c.unique_identifier = ['instance_id'];
 });
 
 function perform(aws) {

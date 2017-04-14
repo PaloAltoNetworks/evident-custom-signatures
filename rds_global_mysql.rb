@@ -11,7 +11,6 @@
 
 configure do |c|
     c.deep_inspection   = [:vpc_security_groups, :db_name, :db_instance_identifier, :engine, :endpoint, :ip_permission]
-    c.unique_identifier = [:rds_name]
 end
 
 def perform(aws)

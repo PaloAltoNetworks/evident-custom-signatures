@@ -8,7 +8,6 @@
 
 configure do |c|
     c.deep_inspection   = [:load_balancer_name, :load_balancer_dns_name, :load_balancer_listener, :vulnerable_ciphers, :load_balancer, :ssl_policy]
-    c.unique_identifier = [:load_balancer_name]
 end
 
 def perform(aws)

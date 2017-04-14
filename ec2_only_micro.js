@@ -15,7 +15,6 @@ dsl.configure(function(c) {
   c.valid_regions = ['us_east_1'];
   c.identifier = 'AWS:EC2-707';
   c.deep_inspection = ['instance_type','instance_id'];
-  c.unique_identifier = [ 'instance_id' ];
 });
 
 function perform(aws) {
@@ -44,6 +43,7 @@ function perform(aws) {
           fail_message += instance.instance_type
 
           alerts.push(dsl.fail({
+            resource_id: instance.instance_id,
             message: fail_message
           }));
 
@@ -53,6 +53,7 @@ function perform(aws) {
           pass_message += instance.instance_id + ' is a micro instance.'
 
           alerts.push(dsl.pass({
+            resource_id: instance.instance_id,
             message: pass_message
           }));
 

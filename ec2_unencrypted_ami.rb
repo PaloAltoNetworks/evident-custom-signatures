@@ -13,7 +13,6 @@
 ##
 configure do |c|
     c.deep_inspection = [:image_id, :name, :description, :root_device_name, :tags, :block_device_mappings]
-    c.unique_identifier  = [:image_id]
 end
 
 # Required perform method

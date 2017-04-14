@@ -8,7 +8,6 @@
 
 configure do |c|
     c.deep_inspection   = [:user_name, :access_key_id, :last_used_date, :last_used_region, :elapsed_hours, :user]
-    c.unique_identifier = [:access_key_id]
     c.valid_regions = [:us_east_1]
     c.display_as = :global
 end
@@ -23,7 +22,7 @@ def perform(aws)
 
         access_keys = aws.iam.list_access_keys(user_name: user_name)
 
-        if access_keys.access_key_metadata.length > 0
+        if access_keys.access_key_metadata.length > 0            
             access_keys.access_key_metadata.each do |access_key|
                 access_key_id = access_key[:access_key_id]
 

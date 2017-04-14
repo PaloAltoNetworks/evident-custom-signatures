@@ -22,7 +22,6 @@
 ##
 configure do |c|
     c.deep_inspection = [:image_id, :name, :description, :public, :tags]
-    c.unique_identifier  = [:image_id]
 end
 
 # Required perform method

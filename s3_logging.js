@@ -1,6 +1,5 @@
 dsl.configure(function(c){
     c.deep_inspection   = ['bucket', 'bucketName', 'logging'];
-    c.unique_identifier = ['bucketName'];
 });
 
 function perform(aws) {
