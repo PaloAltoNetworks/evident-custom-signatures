@@ -23,7 +23,6 @@
 # Required configure loop. Place desired attributes in `c.deep_inspection`
 configure do |c|
     c.deep_inspection = [:instance_id, :instance_tags, :arn, :id, :title, :description, :recommendation, :severity, :indicator_of_compromise, :created_at, :updated_at, :attributes]
-    c.unique_identifier  = [:resource_id]
 end
 
 # Required perform method
