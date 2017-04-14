@@ -16,7 +16,6 @@
 
 configure do |c|
     c.deep_inspection   = [:days_left, :instance_state, :events, :tags]
-    c.unique_identifier = [:instance_id]
 end
 
 def perform(aws)
