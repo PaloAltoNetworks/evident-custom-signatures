@@ -8,7 +8,6 @@
 
 configure do |c|
     c.deep_inspection   = [:user_name, :access_key_id, :last_used_date, :last_used_region, :elapsed_hours, :user]
-    c.unique_identifier = [:user_name]
     c.valid_regions = [:us_east_1]
     c.display_as = :global
 end
@@ -23,7 +22,7 @@ def perform(aws)
 
         access_keys = aws.iam.list_access_keys(user_name: user_name)
 
-        if access_keys.access_key_metadata.length > 0
+        if access_keys.access_key_metadata.length > 0            
             access_keys.access_key_metadata.each do |access_key|
                 access_key_id = access_key[:access_key_id]
 
@@ -35,26 +34,23 @@ def perform(aws)
 
                 if last_used_date.nil?
                     set_data(user_name: user_name, access_key_id: access_key_id, last_used_date: last_used_date, last_used_region: last_used_region, user: user)
-                    warn(message: "User's (#{user_name}) access key has never been used", resource_id: user_name)
+                    warn(message: "User's (#{user_name}) access key (#{access_key_id}) has never been used", resource_id: access_key_id)
                 else
                     now = Time.now
                     used = last_used_date
                     hours = ((now - used) / 3600).to_i
                     
                     set_data(user_name: user_name, access_key_id: access_key_id, last_used_date: last_used_date, last_used_region: last_used_region, elapsed_hours: hours, user: user)
-                    if (hours <= 0) 
-                        fail(message: "User's (#{user_name}) access key was used within the last hour", resource_id: user_name)
+                    if (hours <= 0)
+                        fail(message: "User's (#{user_name}) access key (#{access_key_id}) was used within the last hour", resource_id: access_key_id)
                     elsif (hours > 0 && hours <=24)
-                        warn(message: "User's (#{user_name}) access key was used within the last 24 hours", resource_id: user_name)
+                        warn(message: "User's (#{user_name}) access key (#{access_key_id}) was used within the last 24 hours", resource_id: access_key_id)
                     else
-                        pass(message: "User's (#{user_name}) access key was used more than 24 hours ago", resource_id: user_name)
+                        pass(message: "User's (#{user_name}) access key (#{access_key_id}) was used more than 24 hours ago", resource_id: access_key_id)
                     end
                 end
                 
             end
-        else
-            set_data(user_name: user_name)
-            pass(message: "User #{user_name} has no access key", resource_id: user_name)
         end
 
     end
