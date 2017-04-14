@@ -6,7 +6,6 @@
 configure do |c|
     c.deep_inspection = [:bucket_name, :policy]
     c.valid_regions = [:us_east_1]
-    c.unique_identifier = [:bucket_name]
 end
 
 def perform(aws)
