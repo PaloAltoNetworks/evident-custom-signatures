@@ -20,7 +20,6 @@
 
 configure do |c|
     c.deep_inspection   = [:db_name, :db_instance_identifier, :publicly_accessible]
-    c.unique_identifier = [:rds_name]
 end
 
 # Required perform method
