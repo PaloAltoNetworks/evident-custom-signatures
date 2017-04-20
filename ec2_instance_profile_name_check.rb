@@ -8,7 +8,6 @@
 
 configure do |c|
   c.deep_inspection   = [:instance_id, :profile_arn, :tags]
-  c.unique_identifier = [:instance_id]
 end
 
 def perform(aws)

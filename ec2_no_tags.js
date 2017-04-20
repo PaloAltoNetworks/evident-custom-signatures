@@ -15,7 +15,6 @@ dsl.configure(function(c) {
   c.valid_regions = ['us_east_1'];
   c.identifier = 'AWS:EC2-303';
   c.deep_inspection = ['tags','instance_id','tags_length'];
-  c.unique_identifier = [ 'instance_id' ];
 });
 
 function perform(aws) {
@@ -45,6 +44,7 @@ function perform(aws) {
           fail_message += ' has no tags set.'
 
           alerts.push(dsl.fail({
+            resource_id: instance.instance_id,
             message: fail_message
           }));
 
@@ -55,6 +55,7 @@ function perform(aws) {
           pass_message += ' has tags set. It has ' + tags_length + ' tag(s).'
 
           alerts.push(dsl.pass({
+            resource_id: instance.instance_id,
             message: pass_message
           }));
 

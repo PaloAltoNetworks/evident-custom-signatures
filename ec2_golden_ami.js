@@ -9,7 +9,6 @@ dsl.configure(function(c){
   c.usage             = 'metascrape.signatures.ec2_golden_ami.perform metascrape.customers.evident';
   c.tags              = ['ec2', 'signature'];
   c.deep_inspection   = ['instance_id', 'actual_ami', 'golden_ami'];
-  c.unique_identifier = ['instance_id'];
 });
 
 function perform(aws) {
@@ -34,9 +33,9 @@ function perform(aws) {
             dsl.set_data(report);
             
             if (imageId == goldenImageId[region]) {
-                alerts.push(dsl.pass({message: "REGION: " + region + " - Instance ID " + instanceId + " is running Golden AMI " + imageId}));
+                alerts.push(dsl.pass({resource_id: instanceId, message: "REGION: " + region + " - Instance ID " + instanceId + " is running Golden AMI " + imageId}));
             } else {
-                alerts.push(dsl.fail({message: "REGION: " + region + " - Instance ID " + instanceId + " is NOT running Golden AMI " + goldenImageId[region] + " — Actual AMI => " + imageId}));
+                alerts.push(dsl.fail({resource_id: instanceId, message: "REGION: " + region + " - Instance ID " + instanceId + " is NOT running Golden AMI " + goldenImageId[region] + " — Actual AMI => " + imageId}));
             }
         })
     });

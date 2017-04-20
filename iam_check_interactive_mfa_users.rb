@@ -9,7 +9,6 @@
 
 configure do |c|
     c.deep_inspection   = [:user_name, :login_profile, :mfa_devices]
-    c.unique_identifier = [:user_name]
 end
 
 def perform(aws)
