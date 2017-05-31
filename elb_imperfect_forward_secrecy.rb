@@ -4,6 +4,9 @@
 ##
 ## Check for ELBs with SSL vulnerable to Diffie Hellman Key Exchange attacks (https://weakdh.org)
 ##
+## Note:
+## Similar to standard signature AWS:ELB-002
+##
 ## More info: https://weakdh.org/imperfect-forward-secrecy-ccs15.pdf
 
 configure do |c|
