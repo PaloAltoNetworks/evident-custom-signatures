@@ -15,6 +15,9 @@
 ## * Select your AMI in the list, and then choose Modify Image Permissions from the Actions list.
 ## * Choose Private and choose Save.
 ##
+## Note:
+## Similar to standard signature AWS:EC2-036
+##
 ## In the aws-cli:
 ## * aws ec2 modify-image-attribute --image-id ami-XXXXXXXX --launch-permission "{\"Remove\":[{\"Group\":\"all\"}]}"
 
