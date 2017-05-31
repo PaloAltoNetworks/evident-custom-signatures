@@ -19,6 +19,9 @@
 ## communicate with any other nodes inside your account. If you must permit
 ## global access to TCP port 22 (SSH), then you may suppress this alert.
 ##
+## Note:
+## Similar to standard signature AWS:EC2-002
+##
 configure do |c|
   c.deep_inspection   = [:tags, :owner_id, :group_id, :vpc_id, :group_name,
                        :ip_protocol, :ip_permissions, :ip_permissions_egress,
