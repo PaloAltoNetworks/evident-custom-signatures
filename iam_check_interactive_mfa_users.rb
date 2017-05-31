@@ -6,6 +6,8 @@
 ## This check returns a fail if an interactive IAM user (a user with a password set)
 ## does not have an MFA device assigned.
 ##
+## Note:
+## Similar to standard signature AWS:IAM-004
 
 configure do |c|
     c.deep_inspection   = [:user_name, :login_profile, :mfa_devices]

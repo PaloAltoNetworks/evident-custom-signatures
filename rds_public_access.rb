@@ -17,6 +17,8 @@
 ##       -Scroll down to "Publicly Accessible", and set to "False".
 ##      -Click "Continue", and you are done!
 ##
+## Note:
+## Similar to standard signature AWS:RDS-005
 
 configure do |c|
     c.deep_inspection   = [:db_name, :db_instance_identifier, :publicly_accessible]

@@ -11,6 +11,9 @@
 ## Resolution:
 ## Encrypt all AMIs by following these stepts: (TBD)
 ##
+## Note:
+## Similar to standard signature AWS:EC2-035
+##
 configure do |c|
     c.deep_inspection = [:image_id, :name, :description, :root_device_name, :tags, :block_device_mappings]
 end
