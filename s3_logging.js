@@ -1,3 +1,6 @@
+// Note:
+// Similar to standard signature AWS:SSS-009
+
 dsl.configure(function(c){
     c.deep_inspection   = ['bucket', 'bucketName', 'logging'];
 });
