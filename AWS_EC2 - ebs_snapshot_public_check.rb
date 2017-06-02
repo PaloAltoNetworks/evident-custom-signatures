@@ -1,8 +1,8 @@
 # PROVIDED AS IS WITH NO WARRANTY OR GUARANTEES
-# Copyright (c) 2016 Evident.io, Inc., All Rights Reserved
+# Copyright (c) 2017 Evident.io, Inc., All Rights Reserved
 #
 # Description:
-# EBS Snapshot set with Public Permissions
+# Ensure that EBS Snapshot permission is not set to Public
 # 
 # Default Conditions:
 # - PASS: EBS snapshots are not marked as public
