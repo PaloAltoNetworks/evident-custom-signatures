@@ -56,13 +56,20 @@
                                                                       
 # deep inspection attribute will be included in each alert
 configure do |c|
-    c.deep_inspection   = [:snapshot_id, :volume_alias, :start_time, :description, :volume_size, :encrypted, :tags, :permissions]
+    c.deep_inspection   = [:snapshot_id, :volume_alias, :start_time, :description, :volume_size, :encrypted, :tags]
 end
 
 def perform(aws)
   # by default, AWS returns both snapshot that you own and snapshots which you have create volume permission (public)
   # This checks only evaluate the snapshots created in this account
+  # Per AWS API doc doc reference, if max_results it not specified 
+  #           "If this parameter is not used, then DescribeSnapshots returns all results"
   snapshots = aws.ec2.describe_snapshots({owner_ids: ['self']}).snapshots
+
+  public_snapshots = []
+  aws.ec2.describe_snapshots({owner_ids: ['self'], restorable_by_user_ids: ['all']})[:snapshots].each do | snapshot |
+    public_snapshots.push(snapshot[:snapshot_id])
+  end
 
   snapshots.each do | snapshot |
     snapshot_id = snapshot[:snapshot_id]
@@ -79,22 +86,14 @@ def perform(aws)
       next
     end
 
-    permissions = aws.ec2.describe_snapshot_attribute({snapshot_id: snapshot_id, attribute: 'createVolumePermission'}).create_volume_permissions
-    is_public = false
-    permissions.each do | permission |
-      if permission.group == 'all' 
-        is_public = true 
-      end 
-    end
-
-    if is_public == true
+    if public_snapshots.include?(snapshot_id)
       if tag_match_found(@options[:warn_only_on_tag], snapshot[:tags])
         warn(message: "snapshot #{snapshot_id} permission is set to public. Alert set to warning due to the tags", resource_id: snapshot_id, warn_only_on_tag: @options[:warn_only_on_tag])
       else
-        fail(message: "snapshot #{snapshot_id} permission is set to public", resource_id: snapshot_id, permissions: permissions)
+        fail(message: "snapshot #{snapshot_id} permission is set to public", resource_id: snapshot_id)
       end
     else
-      pass(message: "snapshot #{snapshot_id} is set to private", resource_id: snapshot_id, permissions: permissions)
+      pass(message: "snapshot #{snapshot_id} is set to private", resource_id: snapshot_id)
     end
 
   end
