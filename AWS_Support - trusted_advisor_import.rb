@@ -12,8 +12,7 @@
 #       "Sid": "Stmt1495740401000",
 #       "Effect": "Allow",
 #       "Action": [
-#         "support:DescribeTrustedAdvisorCheckResult",
-#         "support:DescribeTrustedAdvisorChecks"
+#         "support:*",
 #       ],
 #       "Resource": [
 #         "*"
@@ -156,7 +155,7 @@ def send_alert(check_info,resource)
     pass(resource_id: resource[:resource_id], check_info: info, data: data) 
   elsif resource[:status] == 'warning'
     warn(resource_id: resource[:resource_id], check_info: info, data: data)
-  elsif condition[:status] == 'error'
+  elsif resource[:status] == 'error'
     fail(resource_id: resource[:resource_id], check_info: info, data: data)
   end
     
