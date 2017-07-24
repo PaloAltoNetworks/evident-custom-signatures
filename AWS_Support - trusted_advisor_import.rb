@@ -117,6 +117,16 @@
 }
 
 
+configure do |c|
+  # By default, a custom signature is executed against all region. 
+  # Trusted advisor is regionless.  
+  # So, let's restrict the region to just us-east-1
+  c.valid_regions     = [:us_east_1]
+  # override the region displayed in the alert from us-east-1 to global
+  c.display_as        = :global
+end
+
+
 def perform(aws)
   metadata = get_ta_metadata(aws)
 
