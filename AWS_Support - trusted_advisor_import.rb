@@ -114,6 +114,14 @@
   # If you set the value to just ['error'], 
   # This custom signature will process the 'error' alert from TA
   resource_status: ['warning','error'],
+
+  # A lot of TA check IDs does not return ok alert on monitored resources
+  # By default, when there is no flagged resources returned by the Trusted Advisor,
+  # no ESP alert is generated
+  #
+  # Setting this option to true will cause ESP to generate a PASS alert
+  # when Trusted advisor returns no flagged resources 
+  pass_on_no_TA_alerts: false
 }
 
 
@@ -133,6 +141,11 @@ def perform(aws)
   @options[:check_ids].each do | check_id |
     if metadata.key?(check_id)
       result = aws.support.describe_trusted_advisor_check_result(language: 'en', check_id: check_id)[:result]
+
+      if result[:flagged_resources].count < 1 and @options[:pass_on_no_TA_alerts]
+        pass(message: "No Flagged resources for check ID #{check_id}", resource_id: check_id)
+        next
+      end
 
       result[:flagged_resources].each do | resource |
         if @options[:resource_status].include?(resource[:status])
