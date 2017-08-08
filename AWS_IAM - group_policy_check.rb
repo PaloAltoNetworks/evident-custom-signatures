@@ -106,20 +106,24 @@ def perform(aws)
     set_data(group)
     group_name = group[:group_name]
 
-    if @options[:approved_list].include?(group_name)
-      pass(message: "group #{group_name} is in the approved list. Skipping check", resource_id: group_id)
-      next
-    end
+    begin
+      if @options[:approved_list].include?(group_name)
+        pass(message: "group #{group_name} is in the approved list. Skipping check", resource_id: group_name)
+        next
+      end
 
-    offending_managed_policies = get_offending_managed_policies(aws,group_name,'group')
-    offending_inline_policies = get_offending_inline_policies(aws,group_name, 'group')
+      offending_managed_policies = get_offending_managed_policies(aws,group_name,'group')
+      offending_inline_policies = get_offending_inline_policies(aws,group_name, 'group')
 
-    set_data(offending_managed_policies: offending_managed_policies, offending_inline_policies: offending_inline_policies)
+      set_data(offending_managed_policies: offending_managed_policies, offending_inline_policies: offending_inline_policies)
 
-    if offending_managed_policies.count > 0 or offending_inline_policies.count > 0
-      fail(message: "offending IAM permission found on group #{group_name}", resource_id: group_name)
-    else
-      pass(message: "No offending IAM permission found on group #{group_name}", resource_id: group_name)
+      if offending_managed_policies.count > 0 or offending_inline_policies.count > 0
+        fail(message: "offending IAM permission found on group #{group_name}", resource_id: group_name)
+      else
+        pass(message: "No offending IAM permission found on group #{group_name}", resource_id: group_name)
+      end
+    rescue StandardError => e
+        fail(message: "ERROR in processing group #{group_name}", resource_id: group_name, error: e.message)
     end
 
   end
@@ -249,12 +253,16 @@ end
 def get_offending_statement(policy_doc)
   offending_statements = []
 
-  if policy_doc['Statement'].is_a? Hash  
-    offending_statements.push(policy_doc['Statement']) if statement_has_offending_action?(policy_doc['Statement'])
-  else
-    policy_doc['Statement'].each do | statement |
-      offending_statements.push(statement) if statement_has_offending_action?(statement)
-    end
+  begin
+    if policy_doc['Statement'].is_a? Hash  
+      offending_statements.push(policy_doc['Statement']) if statement_has_offending_action?(policy_doc['Statement'])
+    else
+      policy_doc['Statement'].each do | statement |
+        offending_statements.push(statement) if statement_has_offending_action?(statement)
+      end
+    end    
+  rescue StandardError => e 
+    offending_statements.push("ERROR in processing the policy doc: #{e.message}")
   end
 
   return offending_statements
@@ -300,7 +308,7 @@ def statement_has_offending_action?(statement)
       has_blacklisted_action = true if (statement['NotAction'] & @options[:blacklisted_actions]).count != @options[:blacklisted_actions].count
     else
       # because there is just one action in NotAction 
-      has_blacklisted_action = true if @options[:blacklisted_actions]> 1
+      has_blacklisted_action = true if @options[:blacklisted_actions].count > 1
       has_blacklisted_action = true if (@options[:blacklisted_actions].include?(statement['NotAction']) == false)
     end
 
