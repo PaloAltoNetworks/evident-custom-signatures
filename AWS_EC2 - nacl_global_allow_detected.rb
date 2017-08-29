@@ -40,8 +40,8 @@
   #   { protocol: "tcp", from_port: 0, port_to: 1024}
   # ]
 blacklist: [
-    { protocol: "tcp", from_port: 0, to_port: 1024},
-    { protocol: "udp", from_port: 0, to_port: 1024}
+    { protocol: "tcp", from_port: 0, to_port: 65535},
+    { protocol: "udp", from_port: 0, to_port: 65535}
   ],
 
 
