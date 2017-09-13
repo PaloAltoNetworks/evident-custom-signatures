@@ -23,17 +23,39 @@
 #
 
 # Description:
-# Check for S3 bucket's ACL settings for public access 
+# Check for Cluster's Security Configuration (Encryption)
+#
+# This custom signature requires additional permission:
+# {
+#   "Version": "2012-10-17",
+#   "Statement": [
+#     {
+#       "Sid": "EMRInspect",
+#       "Effect": "Allow",
+#       "Action": [
+#         "elasticmapreduce:ListClusters",
+#         "elasticmapreduce:DescribeCluster",
+#         "elasticmapreduce:DescribeSecurityConfiguration"
+#       ],
+#       "Resource": [
+#         "*"
+#       ]
+#     }
+#   ]
+# }
+#
 # 
 # Default Conditions:
-# - PASS: S3 bucket does not have ACL settings that allows for public access
-# - FAIL: S3 bucket has one or more ACL that grants public access
+# - PASS: EMR cluster has both in-transit and at-rest encryption enabled
+# - FAIL: EMR cluster has no security configuration (encryption) set
+# - FAIL: EMR cluster has only in-transit or at-rest encryption enabled
+# 
 #
 # Resolution/Remediation:
-# - Open the Amazon S3 console at https://console.aws.amazon.com/s3/.
-# - Select the S3 bucket
-# - Select Permissions tab
-# - Remove the offending permissions
+# As of Sept 2017, you can only specify the security configuration when launching a cluster and there is
+# no option to modify the existing cluster's security configuration
+# You might need to re-launch the cluster with the proper security configuration
+#
 
 #    ______     ___     ____  _____   ________   _____     ______   
 #  .' ___  |  .'   `.  |_   \|_   _| |_   __  | |_   _|  .' ___  |  
@@ -42,51 +64,27 @@
 # \ `.___.'\ \  `-'  /  _| |_\   |_   _| |_      _| |_  \ `.___]  | 
 #  `.____ .'  `.___.'  |_____|\____| |_____|    |_____|  `._____.'  
 # Configurable options                                                                  
-@options = {  
+@options = {
   # When a resource has one or more matching tags, the resource will be excluded from the checks
   # and a PASS alert is generated
   # Example:
   # exclude_on_tag: [
-  #     {key: "skipped", value: "yeah"},
-  #     {key: "skipped", value: "ye*"}
+  #     {key: "environment", value: "demo"},
+  #     {key: "environment", value: "dev*"}
   # ]
   # For wildcard, use *  . If set value: "*", it will match any value inside of the tag
-  #
-  # WARNING: Pulling tags requires additional API call. Therefore, tag information will be pulled
-  #          if there is one or more tags specified in 'exclude_on_tag'
   exclude_on_tag: [
-    {key: "environment", value: "demo*"}
+    {key: "environment", value: "test*"}
   ],
 
+  # If set to true, FAIL alert will be generated if
+  # in-tansit encryption is not enabled
+  require_in_transit_encryption: true ,
 
-  # Case sensitivity when comparint the tag key & value
-  case_insensitive: true,
+  # If set to true, FAIL alert will be generated if
+  # at-rest encryption is not enabled
+  require_at_rest_encryption: true ,
 
-
-  # List the buckets that you want to be excluded from the checks.
-  # Case Sensitive
-  # Example:
-  #  bucket_whitelist: ['www.mywebsite.com', 'www.yourwebsite.com'],
-  bucket_whitelist: [],
-
-
-  # If you specify a regex, bucket that match the regex will be excluded from the check
-  # Example:
-  # to exclude wwww.something.com (i at the end for case insensitive)
-  #       exclude_bucket_on_regex: /^www\..*$/i ,
-  # to exclude demo-bucket-<something>
-  #       exclude_bucket_on_regex: /demo-bucket-.*/,
-  exclude_bucket_on_regex: nil,
-
-
-  # List of permissions to be checked
-  permission_list: [
-    'READ',
-    'WRITE',
-    'READ_ACP',
-    'WRITE_ACP',
-    'FULL_CONTROL'
-  ]
 }
 
 #    ______   ____  ____   ________     ______   ___  ____     ______   
@@ -98,86 +96,50 @@
                                                                       
 # deep inspection attribute will be included in each alert
 configure do |c|
-    c.deep_inspection   = [:bucket_name, :bucket_location, :offending_acl, :bucket_acl, :options]
+    c.deep_inspection   = [:id, :name, :status, :security_configuration, :security_configuration_details, :tags, :options]
 end
+
 
 def perform(aws)
-  aws.s3.list_buckets[:buckets].each do |bucket|
-    begin
-      bucket_name = bucket[:name]
+  aws.emr.list_clusters[:clusters].each do | cluster |
+    # Terminated EMR cluster stil shows up for ~2 weeks
+    next if cluster[:status][:state].include?("TERMINAT")
 
-      # The signature runtime is tied to a region.
-      # To avoid the redirection error for dns named bucket,
-      # Buckets are evaluated per region. Bucket on another region will be skipped
-      bucket_location = aws.s3.get_bucket_location(bucket: bucket_name).location_constraint
-      if bucket_location == ""
-        next if aws.s3.config[:region] != "us-east-1"
-      elsif bucket_location != aws.s3.config[:region]
-        next
-      end
+    cluster_details = aws.emr.describe_cluster(cluster_id: cluster[:id])[:cluster]
+    cluster_name = cluster_details[:name]
+    set_data(cluster_details)
 
-      bucket_exclusion_cause = get_bucket_exclusion_cause(aws,bucket_name)
-      if bucket_exclusion_cause != ""
-        set_data(bucket_name: bucket_name, bucket_location: bucket_location, options: @options)
-        pass(message: "Bucket #{bucket_name} is skipped from the check due to the #{bucket_exclusion_cause}", resource_id: bucket_name)
-        next
-      end
-
-      bucket_acl = aws.s3.get_bucket_acl({bucket: bucket_name})[:grants]
-      offending_acl = check_bucket_acl(bucket_acl)
-
-      set_data(bucket_name: bucket_name, bucket_location: bucket_location, bucket_acl: bucket_acl, offending_acl: offending_acl, options: @options)
-      if offending_acl.count < 1
-        pass(message: "S3 bucket #{bucket_name} does not have any public ACL grants", resource_id: bucket_name)
-      else
-        fail(message: "Found one or more ACL settings that allows public access", resource_id: bucket_name)
-      end
-
-    rescue StandardError => e
-      error(message: "Error in processing the bucket ACL", error: e.message, resource_id: bucket_name)
+    if get_tag_matches(@options[:exclude_on_tag], cluster_details[:tags]).count > 0
+      pass(message: "EMR cluster #{cluster_name} is excluded due to the tag", resource_id: cluster_details[:id])
       next
     end
-  end
-end
 
+    if cluster_details.key?("security_configuration") == false or cluster_details[:security_configuration] == ""
+      set_data(security_configuration: nil)
+      fail(message: "EMR cluster #{cluster_name} has no security configuration set", resource_id: cluster_details[:id])
+      next
+    end
 
-def get_bucket_exclusion_cause(aws, bucket_name)
-  # Check to see if the bucket should be included base on its tags
-  if @options[:exclude_on_tag].count > 0
-    begin
-      tags = aws.s3.get_bucket_tagging({bucket: bucket_name})[:tag_set]  
-      return "tags" if get_tag_matches(@options[:exclude_on_tag], tags).count > 0
-    rescue StandardError => e
-      if e.message.include?("The TagSet does not exist")
-      # do nothing
+    security_configuration = aws.emr.describe_security_configuration({name: cluster_details[:security_configuration]})[:security_configuration]
+    security_configuration = JSON.parse(security_configuration) if security_configuration.is_a? String
+
+    set_data(security_configuration_details: security_configuration)
+    if security_configuration["EncryptionConfiguration"]["EnableInTransitEncryption"] and security_configuration["EncryptionConfiguration"]["EnableAtRestEncryption"]
+      pass(message: "EMR cluster #{cluster_name} has both in-transit and at-rest encryption enabled", resource_id: cluster_details[:id])
+    else
+      if @options[:require_at_rest_encryption] and security_configuration["EncryptionConfiguration"]["EnableAtRestEncryption"] == false
+        fail(message: "EMR cluster #{cluster_name} does not have at-rest encryption enabled", resource_id: cluster_details[:id])
+      elsif @options[:require_in_transit_encryption] and security_configuration["EncryptionConfiguration"]["EnableInTransitEncryption"] == false
+        fail(message: "EMR cluster #{cluster_name} does not have in-transit encryption enabled", resource_id: cluster_details[:id])
+      else
+        # Should not happen...
+        fail(message: "EMR clsuter #{cluster_name} does not have in-transit or at-rest encryption enabled", resource_id: cluster_details[:id])
       end
     end
+
   end
-
-  # Check to see if bucket is listed in bucket_whitelist
-  return "bucket_whitelist" if @options[:bucket_whitelist].include?(bucket_name)
-
-  # Check to see if bucket should be excluded based on regex
-  if @options[:exclude_bucket_on_regex].nil? == false
-    return "regex" if bucket_name.match(@options[:exclude_bucket_on_regex])
-  end
-
-  return "" 
 end
 
-
-def check_bucket_acl(bucket_acl)
-  offending_acl = []
-  bucket_acl.each do | grant |
-    next if grant[:grantee][:type] != 'Group'
-
-    if grant[:grantee][:uri].include?("global/AuthenticatedUsers") or grant[:grantee][:uri].include?("global/AllUsers")
-      offending_acl.push(grant) if @options[:permission_list].include?(grant[:permission])
-    end
-  end 
-
-  return offending_acl
-end
 
 
 # Return the number of matching tags if one of the tag key-value pair matches

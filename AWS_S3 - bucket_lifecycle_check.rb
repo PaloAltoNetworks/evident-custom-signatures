@@ -23,17 +23,19 @@
 #
 
 # Description:
-# Check for S3 bucket's ACL settings for public access 
+# Check for S3 bucket lifecycle configuration
 # 
 # Default Conditions:
-# - PASS: S3 bucket does not have ACL settings that allows for public access
-# - FAIL: S3 bucket has one or more ACL that grants public access
+# - PASS: S3 bucket has bucket lifecycle configuration
+# - FAIL: S3 bucket does not have bucket lifecycle configuration
 #
 # Resolution/Remediation:
-# - Open the Amazon S3 console at https://console.aws.amazon.com/s3/.
-# - Select the S3 bucket
-# - Select Permissions tab
-# - Remove the offending permissions
+# - Open the Amazon S3 console at https://console.aws.amazon.com/s3/
+# - Select the target bucket
+# - Click on [Management] tab
+# - Click on [+ Add Lifecycle rule]
+# - Follow the guide to create a lifecycle rule
+#
 
 #    ______     ___     ____  _____   ________   _____     ______   
 #  .' ___  |  .'   `.  |_   \|_   _| |_   __  | |_   _|  .' ___  |  
@@ -47,8 +49,8 @@
   # and a PASS alert is generated
   # Example:
   # exclude_on_tag: [
-  #     {key: "skipped", value: "yeah"},
-  #     {key: "skipped", value: "ye*"}
+  #     {key: "skipped", value: "demo"},
+  #     {key: "skipped", value: "dev*"}
   # ]
   # For wildcard, use *  . If set value: "*", it will match any value inside of the tag
   #
@@ -57,7 +59,6 @@
   exclude_on_tag: [
     {key: "environment", value: "demo*"}
   ],
-
 
   # Case sensitivity when comparint the tag key & value
   case_insensitive: true,
@@ -78,15 +79,6 @@
   #       exclude_bucket_on_regex: /demo-bucket-.*/,
   exclude_bucket_on_regex: nil,
 
-
-  # List of permissions to be checked
-  permission_list: [
-    'READ',
-    'WRITE',
-    'READ_ACP',
-    'WRITE_ACP',
-    'FULL_CONTROL'
-  ]
 }
 
 #    ______   ____  ____   ________     ______   ___  ____     ______   
@@ -98,8 +90,9 @@
                                                                       
 # deep inspection attribute will be included in each alert
 configure do |c|
-    c.deep_inspection   = [:bucket_name, :bucket_location, :offending_acl, :bucket_acl, :options]
+    c.deep_inspection   = [:bucket_name, :bucket_location, :lifecycle_rules, :tags, :options]
 end
+
 
 def perform(aws)
   aws.s3.list_buckets[:buckets].each do |bucket|
@@ -123,29 +116,36 @@ def perform(aws)
         next
       end
 
-      bucket_acl = aws.s3.get_bucket_acl({bucket: bucket_name})[:grants]
-      offending_acl = check_bucket_acl(bucket_acl)
-
-      set_data(bucket_name: bucket_name, bucket_location: bucket_location, bucket_acl: bucket_acl, offending_acl: offending_acl, options: @options)
-      if offending_acl.count < 1
-        pass(message: "S3 bucket #{bucket_name} does not have any public ACL grants", resource_id: bucket_name)
-      else
-        fail(message: "Found one or more ACL settings that allows public access", resource_id: bucket_name)
+      begin
+        lifecycle_rules = aws.s3.get_bucket_lifecycle_configuration(bucket: bucket_name)[:rules]
+        set_data(lifecycle_rules: lifecycle_rules)
+        pass(message: "S3 bucket #{bucket_name} has lifecycle rule(s) set", resource_id: bucket_name)
+      rescue StandardError => e
+        set_data(lifecycle_rules: nil)
+        if e.message.include?("The lifecycle configuration does not exist")
+          fail(message: "S3 bucket #{bucket_name} does not have lifecycle rule set", resource_id: bucket_name, error: e.message)
+        else
+          error(message: "Failed to get S3 bucket #{bucket_name} lifecycle rule", resource_id: bucket_name, error: e.message)
+        end
+        
       end
+  
 
     rescue StandardError => e
-      error(message: "Error in processing the bucket ACL", error: e.message, resource_id: bucket_name)
+      error(message: "Error in processing bucket #{bucket_name}", error: e.message, resource_id: bucket_name)
       next
     end
   end
 end
 
 
+
 def get_bucket_exclusion_cause(aws, bucket_name)
   # Check to see if the bucket should be included base on its tags
   if @options[:exclude_on_tag].count > 0
     begin
-      tags = aws.s3.get_bucket_tagging({bucket: bucket_name})[:tag_set]  
+      tags = aws.s3.get_bucket_tagging({bucket: bucket_name})[:tag_set]
+      set_data(tags: tags) 
       return "tags" if get_tag_matches(@options[:exclude_on_tag], tags).count > 0
     rescue StandardError => e
       if e.message.include?("The TagSet does not exist")
@@ -163,20 +163,6 @@ def get_bucket_exclusion_cause(aws, bucket_name)
   end
 
   return "" 
-end
-
-
-def check_bucket_acl(bucket_acl)
-  offending_acl = []
-  bucket_acl.each do | grant |
-    next if grant[:grantee][:type] != 'Group'
-
-    if grant[:grantee][:uri].include?("global/AuthenticatedUsers") or grant[:grantee][:uri].include?("global/AllUsers")
-      offending_acl.push(grant) if @options[:permission_list].include?(grant[:permission])
-    end
-  end 
-
-  return offending_acl
 end
 
 
