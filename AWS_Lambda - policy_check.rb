@@ -179,7 +179,7 @@ def perform(aws)
       check_resource(resource,aws)
     end
 
-    if resp[:next_marker].nil? or resp[:marker] == ''
+    if resp[:next_marker].nil? or resp[:next_marker] == ''
       finished = true
     else
       resp = aws.lambda.list_functions(marker: resp[:next_marker], max_items: @options[:max_results])
