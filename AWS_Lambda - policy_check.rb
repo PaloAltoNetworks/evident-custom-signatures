@@ -142,8 +142,10 @@
 
   # Set the maximum number of records retrieved per API call
   # Valid option: integer (range not specified in API doc)
-  max_results: 100
+  max_results: 10,
 
+  # To avoid hitting the rate limit, specify the wait time (in seconds) between grabbing each result set
+  wait_time: 3
 }
 
 
@@ -182,6 +184,7 @@ def perform(aws)
     if resp[:next_marker].nil? or resp[:next_marker] == ''
       finished = true
     else
+      wait(@options[:wait_time])
       resp = aws.lambda.list_functions(marker: resp[:next_marker], max_items: @options[:max_results])
     end
   end
@@ -405,4 +408,12 @@ end
 
 
 
-
+################################################
+## Sleep is blocked, so this is a workaround
+################################################
+def wait(time)
+    start_time = Time.new
+    while Time.new < start_time + time.seconds
+        # waiting ...
+    end
+end
