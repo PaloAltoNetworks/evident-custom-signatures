@@ -182,7 +182,7 @@ def perform(aws)
     if resp[:next_marker].nil? or resp[:marker] == ''
       finished = true
     else
-      resp = aws.lambda.list_functions(marker: resp[:marker], max_items: @options[:max_results])
+      resp = aws.lambda.list_functions(marker: resp[:next_marker], max_items: @options[:max_results])
     end
   end
 
