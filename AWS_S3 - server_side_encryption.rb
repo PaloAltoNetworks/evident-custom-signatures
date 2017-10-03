@@ -23,17 +23,48 @@
 #
 
 # Description:
-# Check for S3 bucket's ACL settings for public access 
+# Check S3 bucket policy for Server Side Encryption setting
+# http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingServerSideEncryption.html
+#
+# For simplicity, per AWS documentation above, SSE is considered as enabled the bucket has one of the following
+# conditions in the statement
+# Option 1: 
+# {
+#   "Sid": "DenyIncorrectEncryptionHeader",
+#   "Effect": "Deny",
+#   "Principal": "*",
+#   "Action": "s3:PutObject",
+#   "Resource": "arn:aws:s3:::YourBucket/*",
+#   "Condition": {
+#     "StringNotEquals": {
+#       "s3:x-amz-server-side-encryption": "AES256"
+#     }
+#   }
+# }
+#
+# Option 2:
+# {
+#   "Sid": "DenyUnEncryptedObjectUploads",
+#   "Effect": "Deny",
+#   "Principal": "*",
+#   "Action": "s3:PutObject",
+#   "Resource": "arn:aws:s3:::YourBucket/*",
+#   "Condition": {
+#     "Null": {
+#      "s3:x-amz-server-side-encryption": "true"
+#    }
+#   }
+# }
+#
 # 
 # Default Conditions:
-# - PASS: S3 bucket does not have ACL settings that allows for public access
-# - FAIL: S3 bucket has one or more ACL that grants public access
+# - PASS: S3 bucket has SSE enabled
+# - FAIL: S3 bucket does not have SSE enabled, or does not have S3 bucket policy set
 #
 # Resolution/Remediation:
-# - Open the Amazon S3 console at https://console.aws.amazon.com/s3/.
-# - Select the S3 bucket
-# - Select Permissions tab
-# - Remove the offending permissions
+# - Adjust the S3 bucket policy to enable SSE
+#
+
 
 #    ______     ___     ____  _____   ________   _____     ______   
 #  .' ___  |  .'   `.  |_   \|_   _| |_   __  | |_   _|  .' ___  |  
@@ -41,21 +72,20 @@
 # | |        | |   | |   | |\ \| |     |  _|      | |   | |   ____  
 # \ `.___.'\ \  `-'  /  _| |_\   |_   _| |_      _| |_  \ `.___]  | 
 #  `.____ .'  `.___.'  |_____|\____| |_____|    |_____|  `._____.'  
-# Configurable options                                                                  
-@options = {  
+# Configurable options    
+@options = {
   # When a resource has one or more matching tags, the resource will be excluded from the checks
   # and a PASS alert is generated
   # Example:
   # exclude_on_tag: [
-  #     {key: "skipped", value: "yeah"},
-  #     {key: "skipped", value: "ye*"}
+  #     {key: "environment", value: "demo"},
+  #     {key: "environment", value: "dev*"}
   # ]
   # For wildcard, use *  . If set value: "*", it will match any value inside of the tag
   #
   # WARNING: Pulling tags requires additional API call. Therefore, tag information will be pulled
   #          if there is one or more tags specified in 'exclude_on_tag'
   exclude_on_tag: [
-    {key: "environment", value: "demo*"}
   ],
 
 
@@ -76,18 +106,9 @@
   #       exclude_bucket_on_regex: /^www\..*$/i ,
   # to exclude demo-bucket-<something>
   #       exclude_bucket_on_regex: /demo-bucket-.*/,
-  exclude_bucket_on_regex: nil,
-
-
-  # List of permissions to be checked
-  permission_list: [
-    'READ',
-    'WRITE',
-    'READ_ACP',
-    'WRITE_ACP',
-    'FULL_CONTROL'
-  ]
+  exclude_bucket_on_regex: nil ,
 }
+
 
 #    ______   ____  ____   ________     ______   ___  ____     ______   
 #  .' ___  | |_   ||   _| |_   __  |  .' ___  | |_  ||_  _|  .' ____ \  
@@ -98,47 +119,74 @@
                                                                       
 # deep inspection attribute will be included in each alert
 configure do |c|
-    c.deep_inspection   = [:bucket_name, :bucket_location, :offending_acl, :bucket_acl, :options]
+    c.deep_inspection   = [:bucket_name, :creation_date, :offending_statements, :policy_doc, :options]
 end
+
 
 def perform(aws)
-  aws.s3.list_buckets[:buckets].each do |bucket|
-    begin
-      bucket_name = bucket[:name]
-
-      # The signature runtime is tied to a region.
-      # To avoid the redirection error for dns named bucket,
-      # Buckets are evaluated per region. Bucket on another region will be skipped
-      bucket_location = aws.s3.get_bucket_location(bucket: bucket_name).location_constraint
-      if bucket_location == ""
-        next if aws.region != "us-east-1"
-      elsif bucket_location != aws.region
-        next
-      end
-
-      bucket_exclusion_cause = get_bucket_exclusion_cause(aws,bucket_name)
-      if bucket_exclusion_cause != ""
-        set_data(bucket_name: bucket_name, bucket_location: bucket_location, options: @options)
-        pass(message: "Bucket #{bucket_name} is skipped from the check due to the #{bucket_exclusion_cause}", resource_id: bucket_name)
-        next
-      end
-
-      bucket_acl = aws.s3.get_bucket_acl({bucket: bucket_name})[:grants]
-      offending_acl = check_bucket_acl(bucket_acl)
-
-      set_data(bucket_name: bucket_name, bucket_location: bucket_location, bucket_acl: bucket_acl, offending_acl: offending_acl, options: @options)
-      if offending_acl.count < 1
-        pass(message: "S3 bucket #{bucket_name} does not have any public ACL grants", resource_id: bucket_name)
-      else
-        fail(message: "Found one or more ACL settings that allows public access", resource_id: bucket_name)
-      end
-
-    rescue StandardError => e
-      error(message: "Error in processing the bucket ACL", error: e.message, resource_id: bucket_name)
-      next
+  begin
+    aws.s3.list_buckets[:buckets].each do |resource|
+      check_resource(resource,aws)
     end
+  rescue StandardError => e
+    error(message: "Error in getting the bucket list", error: e.message)
+    return  
+  end
+  
+end
+
+
+
+def check_resource(resource,aws)
+  begin
+    resource_name = resource[:name]
+
+    bucket_location = aws.s3.get_bucket_location(bucket: resource_name)[:location_constraint]
+
+    if bucket_location == ""
+      return if aws.region != "us-east-1"
+    elsif bucket_location != aws.region
+      return
+    end
+
+    bucket_exclusion_cause = get_bucket_exclusion_cause(aws,resource_name)
+    if bucket_exclusion_cause != ""
+      set_data(resource)
+      set_data(options: @options)
+      pass(message: "Bucket #{resource_name} is skipped from the check due to the #{bucket_exclusion_cause}", resource_id: resource_name)
+      return
+    end
+
+
+    # Bucket is not excluded from the check.
+    # Grabbing the policy doc...
+    policy_doc = aws.s3.get_bucket_policy({bucket: resource_name})[:policy].read
+    if policy_doc.is_a? String
+      policy_doc = JSON.parse(policy_doc)
+    end
+    
+    sse_enforced = check_sse_enforcement(policy_doc)
+
+    set_data(resource)
+    set_data(policy_doc: policy_doc, options: @options)
+
+    if sse_enforced
+      pass(message: "Bucket #{resource_name} has SSE enforced", resource_id: resource_name)
+    else
+      fail(message: "Bucket #{resource_name} does not have SSE enforced", resource_id: resource_name)
+    end
+
+  rescue StandardError => e
+    if e.message.include?("The bucket policy does not exist")
+      fail(message: "Bucket #{resource_name} does not have any policy set", resource_id: resource_name)
+    else
+      error(message: "Error in processing bucket #{resource_name}. Error: #{e.message}", resource_id: resource_name)
+    end
+
+    return
   end
 end
+
 
 
 def get_bucket_exclusion_cause(aws, bucket_name)
@@ -166,18 +214,87 @@ def get_bucket_exclusion_cause(aws, bucket_name)
 end
 
 
-def check_bucket_acl(bucket_acl)
-  offending_acl = []
-  bucket_acl.each do | grant |
-    next if grant[:grantee][:type] != 'Group'
+# Return true if S3 bucket has SSE enforcement
+# it will return false if all S3 policy statement has been evaluated 
+# and no SSE enforcement is found
+def check_sse_enforcement(policy_doc)
+  if policy_doc['Statement'].is_a? Hash 
+    return true if statement_has_sse?(policy_doc['Statement'])
 
-    if grant[:grantee][:uri].include?("global/AuthenticatedUsers") or grant[:grantee][:uri].include?("global/AllUsers")
-      offending_acl.push(grant) if @options[:permission_list].include?(grant[:permission])
+  else
+    policy_doc['Statement'].each do | statement |
+        return true if statement_has_sse?(statement)
     end
-  end 
 
-  return offending_acl
+  end
+
+  return false
 end
+
+
+#####################################################################################
+#
+# For simplicity, we assume that user will follow one of the documented way of
+# enabling SSE, listed in this doc: 
+# http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingServerSideEncryption.html
+#
+# Option 1: 
+# {
+#   "Sid": "DenyIncorrectEncryptionHeader",
+#   "Effect": "Deny",
+#   "Principal": "*",
+#   "Action": "s3:PutObject",
+#   "Resource": "arn:aws:s3:::YourBucket/*",
+#   "Condition": {
+#     "StringNotEquals": {
+#       "s3:x-amz-server-side-encryption": "AES256"
+#     }
+#   }
+# }
+#
+# Option 2:
+# {
+#   "Sid": "DenyUnEncryptedObjectUploads",
+#   "Effect": "Deny",
+#   "Principal": "*",
+#   "Action": "s3:PutObject",
+#   "Resource": "arn:aws:s3:::YourBucket/*",
+#   "Condition": {
+#     "Null": {
+#      "s3:x-amz-server-side-encryption": "true"
+#    }
+#   }
+# }
+def statement_has_sse?(statement)
+  return false if statement["Effect"] == "Allow"
+
+  if statement["Action"].is_a? Array
+    return false if statement["Action"].include?("s3:PutObject") == false
+  else
+    return false if statement["Action"] != "s3:PutObject"
+  end
+
+  # Check condition
+  if statement.key?("Condition")
+    # OPtion 1
+    if statement["Condition"].key?("StringNotEquals") and statement["Condition"]["StringNotEquals"].key?("s3:x-amz-server-side-encryption") and
+      statement["Condition"]["StringNotEquals"]["s3:x-amz-server-side-encryption"] == "AES256"
+    then
+      return true
+    end
+
+    # Option 2
+    if statement["Condition"].key?("Null") and statement["Condition"]["Null"].key?("s3:x-amz-server-side-encryption") and
+      statement["Condition"]["Null"]["s3:x-amz-server-side-encryption"] == "true"
+    then
+      return true
+    end
+  end
+
+
+  return false
+end
+
 
 
 # Return the number of matching tags if one of the tag key-value pair matches

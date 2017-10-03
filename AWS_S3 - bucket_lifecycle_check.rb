@@ -104,8 +104,8 @@ def perform(aws)
       # Buckets are evaluated per region. Bucket on another region will be skipped
       bucket_location = aws.s3.get_bucket_location(bucket: bucket_name).location_constraint
       if bucket_location == ""
-        next if aws.s3.config[:region] != "us-east-1"
-      elsif bucket_location != aws.s3.config[:region]
+        next if aws.region != "us-east-1"
+      elsif bucket_location != aws.region
         next
       end
 

@@ -204,8 +204,8 @@ def check_resource(resource,aws)
     bucket_location = aws.s3.get_bucket_location(bucket: resource_name)[:location_constraint]
 
     if bucket_location == ""
-      return if aws.s3.config[:region] != "us-east-1"
-    elsif bucket_location != aws.s3.config[:region]
+      return if aws.region != "us-east-1"
+    elsif bucket_location != aws.region
       return
     end
 
