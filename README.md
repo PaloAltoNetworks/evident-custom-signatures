@@ -8,7 +8,7 @@ Please email support@evident.io if you have any questions.
 
 # Custom Signature Tutorial ( javascript )
 
-##`overview`
+## `overview`
 A custom signature is a function that reads [AWS SDK](http://docs.aws.amazon.com/sdkforruby/api/) data from Amazon, and creates one or more __alerts__ based on that data and conditionals you describe.  
 
 An __alert__ has
@@ -24,7 +24,7 @@ In the `config` section you define the parameters your signature will use when i
 
 In the `perform` section you write a function that implements your security policy, and creates one or more __alerts__.  The alerts are themselves are created using the `dsl.pass()` and `dsl.fail()` functions. Take those objects returned by the functions and push them onto an array of __alerts__. When you are done return them at the end of the `perform` block.  Each __alert__ is then stored in the database.
 
-##`config`
+## `config`
 
 An example `config` section
 ```javascript
@@ -38,29 +38,29 @@ dsl.configure(function(c) {
 `dsl.configure` is a function that is passed an anonymous callback function that receives a configuration object (here `c`) as the first argument.  Inside the anonymous function you have access the configuration settings for the signature.
 
 
-####configuration metadata
+#### configuration metadata
 
-####`valid_regions`
+##### `valid_regions`
 * An array of regions to run the signature
 * ex. `['us_east_1', 'us_west_2']`
 
-####`identifier`
+##### `identifier`
 * A unique string identifying the signature in the database. Usually takes the
 form `AWS:SERVICE_CODE-SOME_NUMBER`
 * ex. `AWS:EC2-303` or `AWS:R52:909`
 
-####`deep_inspection`
+##### `deep_inspection`
 * An array of fields that provide additional information beyond the status when
 an alert is viewed in the actual report.  
 * These fields are referenced in the `perform` block when you call
 `dsl.set_data()`
 
-####`unique_identifier`
+##### `unique_identifier`
 * An array of fields that are used to identify the alert as unique in the
  database.
 * This is commonly unique to the resource being described in the alert.
 
-##`perform`
+## `perform`
 
 The `perform` section is a function that is passed the
  [AWS SDK](http://docs.aws.amazon.com/sdkforruby/api/) as an object.  You use
