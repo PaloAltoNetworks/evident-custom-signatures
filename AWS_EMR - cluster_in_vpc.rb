@@ -24,7 +24,7 @@
 
 # Description:
 # Check to see if EMR Cluster is deployed in VPC or EC2 classic
-# To enforce private VPC, set `fail_on_public_vpc` to true
+# To enforce private VPC, set `fail_on_public_subnet` to true
 #
 # This custom signature requires additional permission:
 # {
@@ -72,14 +72,13 @@
   # ]
   # For wildcard, use *  . If set value: "*", it will match any value inside of the tag
   exclude_on_tag: [
-    {key: "environment", value: "test*"}
   ],
 
   # Case sensitivity when comparint the tag key & value
   case_insensitive: true,
 
   # If set to true, EMR cluster is expected to be launched in a private subnet
-  fail_on_public_vpc: true
+  fail_on_public_subnet: false
 
 }
 
@@ -97,7 +96,7 @@ end
 
 
 def perform(aws)
-  if @options[:fail_on_public_vpc]
+  if @options[:fail_on_public_subnet]
     subnets = get_subnets(aws)
   end
 
@@ -123,14 +122,14 @@ def perform(aws)
     if subnet_id == "" or subnet_id == nil
       fail(message: "EMR cluster #{cluster_name} is deployed in EC2 classic", resource_id: cluster_details[:id])
     else
-      if @options[:fail_on_public_vpc] == false
+      if @options[:fail_on_public_subnet] == false
         pass(message: "EMR cluster #{cluster_name} is deployed in VPC", resource_id: cluster_details[:id])
       else
         set_data(subnet_details: subnets[subnet_id])
         if subnets[subnet_id][:default_route] =~ /^igw-/
-          fail(message: "EMR cluster #{cluster_name} is deployed in public VPC", resource_id: cluster_details[:id])          
+          fail(message: "EMR cluster #{cluster_name} is deployed in VPC's public subnet", resource_id: cluster_details[:id])          
         else
-          pass(message: "EMR cluster #{cluster_name} is deployed in private VPC", resource_id: cluster_details[:id])
+          pass(message: "EMR cluster #{cluster_name} is deployed in VPC's private subnet", resource_id: cluster_details[:id])
         end
       end
     end
