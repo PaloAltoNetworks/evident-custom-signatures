@@ -23,7 +23,7 @@
 #
 
 # Description:
-# Check for Cluster's Security Configuration (Encryption)
+# Check for EMR logging setting
 #
 # This custom signature requires additional permission:
 # {
@@ -34,8 +34,7 @@
 #       "Effect": "Allow",
 #       "Action": [
 #         "elasticmapreduce:ListClusters",
-#         "elasticmapreduce:DescribeCluster",
-#         "elasticmapreduce:DescribeSecurityConfiguration"
+#         "elasticmapreduce:DescribeCluster"
 #       ],
 #       "Resource": [
 #         "*"
@@ -46,15 +45,12 @@
 #
 # 
 # Default Conditions:
-# - PASS: EMR cluster has both in-transit and at-rest encryption enabled
-# - FAIL: EMR cluster has no security configuration (encryption) set
-# - FAIL: EMR cluster has only in-transit or at-rest encryption enabled
+# - PASS: EMR cluster has logging enabled
+# - FAIL: EMR cluster does not have logging enabled
 # 
 #
 # Resolution/Remediation:
-# As of Sept 2017, you can only specify the security configuration when launching a cluster and there is
-# no option to modify the existing cluster's security configuration
-# You might need to re-launch the cluster with the proper security configuration
+# Enable logging or re-launch the cluster with logging setting
 #
 
 #    ______     ___     ____  _____   ________   _____     ______   
@@ -65,29 +61,20 @@
 #  `.____ .'  `.___.'  |_____|\____| |_____|    |_____|  `._____.'  
 # Configurable options                                                                  
 @options = {
-  # When a resource has one or more matching tags, the resource will be excluded from the checks
-  # and a PASS alert is generated
-  # Example:
-  # exclude_on_tag: [
-  #     {key: "environment", value: "demo"},
-  #     {key: "environment", value: "dev*"}
-  # ]
-  # For wildcard, use *  . If set value: "*", it will match any value inside of the tag
-  exclude_on_tag: [
-    {key: "environment", value: "test*"}
-  ],
+# When a resource has one or more matching tags, the resource will be excluded from the checks
+# and a PASS alert is generated
+# Example:
+# exclude_on_tag: [
+#     {key: "environment", value: "demo"},
+#     {key: "environment", value: "dev*"}
+# ]
+# For wildcard, use *  . If set value: "*", it will match any value inside of the tag
+exclude_on_tag: [
+  {key: "environment", value: "test*"}
+],
 
-  # Case sensitivity when comparint the tag key & value
-  case_insensitive: true,
-
-  # If set to true, FAIL alert will be generated if
-  # in-tansit encryption is not enabled
-  require_in_transit_encryption: true ,
-
-  # If set to true, FAIL alert will be generated if
-  # at-rest encryption is not enabled
-  require_at_rest_encryption: true ,
-
+# Case sensitivity when comparint the tag key & value
+case_insensitive: true,
 }
 
 #    ______   ____  ____   ________     ______   ___  ____     ______   
@@ -96,10 +83,10 @@
 # | |          |  __  |     |  _| _  | |          |  __'.     _.____`.  
 # \ `.___.'\  _| |  | |_   _| |__/ | \ `.___.'\  _| |  \ \_  | \____) | 
 #  `.____ .' |____||____| |________|  `.____ .' |____||____|  \______.' 
-                                                                      
+                                                                    
 # deep inspection attribute will be included in each alert
 configure do |c|
-    c.deep_inspection   = [:id, :name, :status, :security_configuration, :security_configuration_details, :tags, :options]
+  c.deep_inspection   = [:id, :name, :status, :log_uri, :tags, :options]
 end
 
 
@@ -113,33 +100,16 @@ def perform(aws)
     set_data(cluster_details)
 
     if get_tag_matches(@options[:exclude_on_tag], cluster_details[:tags]).count > 0
-      pass(message: "EMR cluster #{cluster_name} is excluded due to the tag", resource_id: cluster_details[:id])
+      pass(message: "EMR cluster #{cluster_name} is excluded due to the tag", resource_id: cluster_details[:id], options: @options)
       next
     end
 
-    if cluster_details.key?("security_configuration") == false or cluster_details[:security_configuration] == ""
-      set_data(security_configuration: nil)
-      fail(message: "EMR cluster #{cluster_name} has no security configuration set", resource_id: cluster_details[:id])
-      next
-    end
-
-    security_configuration = aws.emr.describe_security_configuration({name: cluster_details[:security_configuration]})[:security_configuration]
-    security_configuration = JSON.parse(security_configuration) if security_configuration.is_a? String
-
-    set_data(security_configuration_details: security_configuration)
-    if security_configuration["EncryptionConfiguration"]["EnableInTransitEncryption"] and security_configuration["EncryptionConfiguration"]["EnableAtRestEncryption"]
-      pass(message: "EMR cluster #{cluster_name} has both in-transit and at-rest encryption enabled", resource_id: cluster_details[:id])
+    if cluster_details.key?("log_uri")
+      pass(message: "EMR cluster #{cluster_name} has logging enabled", resource_id: cluster_details[:id])
     else
-      if @options[:require_at_rest_encryption] and security_configuration["EncryptionConfiguration"]["EnableAtRestEncryption"] == false
-        fail(message: "EMR cluster #{cluster_name} does not have at-rest encryption enabled", resource_id: cluster_details[:id])
-      elsif @options[:require_in_transit_encryption] and security_configuration["EncryptionConfiguration"]["EnableInTransitEncryption"] == false
-        fail(message: "EMR cluster #{cluster_name} does not have in-transit encryption enabled", resource_id: cluster_details[:id])
-      else
-        # Should not happen...
-        fail(message: "EMR clsuter #{cluster_name} does not have in-transit or at-rest encryption enabled", resource_id: cluster_details[:id])
-      end
+      set_data(log_uri: nil)
+      fail(message: "EMR cluster #{cluster_name} does not have logging enabled", resource_id: cluster_details[:id])
     end
-
   end
 end
 

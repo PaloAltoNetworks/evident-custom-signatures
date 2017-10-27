@@ -23,19 +23,18 @@
 #
 
 # Description:
-# Check for Cluster's Security Configuration (Encryption)
-#
+# Check Kinesis stream settings for encryption
 # This custom signature requires additional permission:
 # {
 #   "Version": "2012-10-17",
 #   "Statement": [
 #     {
-#       "Sid": "EMRInspect",
+#       "Sid": "kinesisInspect",
 #       "Effect": "Allow",
 #       "Action": [
-#         "elasticmapreduce:ListClusters",
-#         "elasticmapreduce:DescribeCluster",
-#         "elasticmapreduce:DescribeSecurityConfiguration"
+#         "kinesis:ListStreams",
+#         "kinesis:ListTagsForStream",
+#         "kinesis:DescribeStream"
 #       ],
 #       "Resource": [
 #         "*"
@@ -43,19 +42,19 @@
 #     }
 #   ]
 # }
-#
 # 
 # Default Conditions:
-# - PASS: EMR cluster has both in-transit and at-rest encryption enabled
-# - FAIL: EMR cluster has no security configuration (encryption) set
-# - FAIL: EMR cluster has only in-transit or at-rest encryption enabled
-# 
+# - PASS: Kinesis stream is encrypted
+# - FAIL: Kinesis stream is not encrypted
 #
 # Resolution/Remediation:
-# As of Sept 2017, you can only specify the security configuration when launching a cluster and there is
-# no option to modify the existing cluster's security configuration
-# You might need to re-launch the cluster with the proper security configuration
-#
+# - Open Kinesis console: https://console.aws.amazon.com/kinesis
+# - Click on the name of the stream you want to change
+# - Under "Server-side encryption", select "Edit" button
+# - Choose "Enabled" radio button
+# - Choose KMS key
+# - Hit "Save"
+
 
 #    ______     ___     ____  _____   ________   _____     ______   
 #  .' ___  |  .'   `.  |_   \|_   _| |_   __  | |_   _|  .' ___  |  
@@ -64,7 +63,8 @@
 # \ `.___.'\ \  `-'  /  _| |_\   |_   _| |_      _| |_  \ `.___]  | 
 #  `.____ .'  `.___.'  |_____|\____| |_____|    |_____|  `._____.'  
 # Configurable options                                                                  
-@options = {
+@options = {  
+# EXCLUSION
   # When a resource has one or more matching tags, the resource will be excluded from the checks
   # and a PASS alert is generated
   # Example:
@@ -73,20 +73,16 @@
   #     {key: "environment", value: "dev*"}
   # ]
   # For wildcard, use *  . If set value: "*", it will match any value inside of the tag
-  exclude_on_tag: [
-    {key: "environment", value: "test*"}
-  ],
+  #
+  # WARNING: Pulling tags requires additional API call. Therefore, tag information will be pulled
+  #          if there is one or more tags specified in 'exclude_on_tag'
+  exclude_on_tag: [],
 
   # Case sensitivity when comparint the tag key & value
   case_insensitive: true,
 
-  # If set to true, FAIL alert will be generated if
-  # in-tansit encryption is not enabled
-  require_in_transit_encryption: true ,
-
-  # If set to true, FAIL alert will be generated if
-  # at-rest encryption is not enabled
-  require_at_rest_encryption: true ,
+  # Maximum number of list to be checked
+  stream_limit: 100
 
 }
 
@@ -99,50 +95,41 @@
                                                                       
 # deep inspection attribute will be included in each alert
 configure do |c|
-    c.deep_inspection   = [:id, :name, :status, :security_configuration, :security_configuration_details, :tags, :options]
+    c.deep_inspection   = [:stream_name, :stream_arn, :stream_status, :retention_period_hours, :encryption_type, :key_id, :tags]
 end
 
-
 def perform(aws)
-  aws.emr.list_clusters[:clusters].each do | cluster |
-    # Terminated EMR cluster stil shows up for ~2 weeks
-    next if cluster[:status][:state].include?("TERMINAT")
+  begin
+    stream_names = aws.ks.list_streams(limit: @options[:stream_limit])[:stream_names]
+  rescue StandardError => e
+    error(message: "Unable to get the list of Kinesis streams. Please ensure that ESP has the proper access", error: e.message)
+    return
+  end
 
-    cluster_details = aws.emr.describe_cluster(cluster_id: cluster[:id])[:cluster]
-    cluster_name = cluster_details[:name]
-    set_data(cluster_details)
+  stream_names.each do | stream_name |
+    stream_info = aws.ks.describe_stream(stream_name: stream_name)[:stream_description]
+    set_data(stream_info)
 
-    if get_tag_matches(@options[:exclude_on_tag], cluster_details[:tags]).count > 0
-      pass(message: "EMR cluster #{cluster_name} is excluded due to the tag", resource_id: cluster_details[:id])
-      next
-    end
-
-    if cluster_details.key?("security_configuration") == false or cluster_details[:security_configuration] == ""
-      set_data(security_configuration: nil)
-      fail(message: "EMR cluster #{cluster_name} has no security configuration set", resource_id: cluster_details[:id])
-      next
-    end
-
-    security_configuration = aws.emr.describe_security_configuration({name: cluster_details[:security_configuration]})[:security_configuration]
-    security_configuration = JSON.parse(security_configuration) if security_configuration.is_a? String
-
-    set_data(security_configuration_details: security_configuration)
-    if security_configuration["EncryptionConfiguration"]["EnableInTransitEncryption"] and security_configuration["EncryptionConfiguration"]["EnableAtRestEncryption"]
-      pass(message: "EMR cluster #{cluster_name} has both in-transit and at-rest encryption enabled", resource_id: cluster_details[:id])
+    if stream_info[:encryption_type] == "KMS"
+      pass(message: "Kinesis stream #{stream_name} has encryption enabled", resource_id: stream_name)
     else
-      if @options[:require_at_rest_encryption] and security_configuration["EncryptionConfiguration"]["EnableAtRestEncryption"] == false
-        fail(message: "EMR cluster #{cluster_name} does not have at-rest encryption enabled", resource_id: cluster_details[:id])
-      elsif @options[:require_in_transit_encryption] and security_configuration["EncryptionConfiguration"]["EnableInTransitEncryption"] == false
-        fail(message: "EMR cluster #{cluster_name} does not have in-transit encryption enabled", resource_id: cluster_details[:id])
+      if @options[:exclude_on_tag].count > 0
+        tags = aws.ks.list_tags_for_stream(stream_name: stream_name)[:tags]
+        set_data(tags: tags)
+        if get_tag_matches(@options[:exclude_on_tag], tags).count > 0
+          pass(message: "Kinesis stream #{stream_name} does not have encryption enabled. Alert set to pass due to the tags", resource_id: stream_name, options: @options)
+          next
+        end
+
       else
-        # Should not happen...
-        fail(message: "EMR clsuter #{cluster_name} does not have in-transit or at-rest encryption enabled", resource_id: cluster_details[:id])
+        fail(message: "Kinesis stream #{stream_name} does not have encryption enabled", resource_id: stream_name)
       end
     end
 
   end
-end
 
+
+end
 
 
 # Return the number of matching tags if one of the tag key-value pair matches
