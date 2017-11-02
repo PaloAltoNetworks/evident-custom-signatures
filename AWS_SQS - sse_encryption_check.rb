@@ -23,39 +23,20 @@
 #
 
 # Description:
-# Check for Cluster's Security Configuration (Encryption)
-#
-# This custom signature requires additional permission:
-# {
-#   "Version": "2012-10-17",
-#   "Statement": [
-#     {
-#       "Sid": "EMRInspect",
-#       "Effect": "Allow",
-#       "Action": [
-#         "elasticmapreduce:ListClusters",
-#         "elasticmapreduce:DescribeCluster",
-#         "elasticmapreduce:DescribeSecurityConfiguration"
-#       ],
-#       "Resource": [
-#         "*"
-#       ]
-#     }
-#   ]
-# }
-#
+# Check for SQS encryption setting (using KMS)
 # 
 # Default Conditions:
-# - PASS: EMR cluster has both in-transit and at-rest encryption enabled
-# - FAIL: EMR cluster has no security configuration (encryption) set
-# - FAIL: EMR cluster has only in-transit or at-rest encryption enabled
-# 
+# - PASS: SQS has encryption enabled
+# - FAIL: SQS does not have SQS encryption enabled
 #
 # Resolution/Remediation:
-# As of Sept 2017, you can only specify the security configuration when launching a cluster and there is
-# no option to modify the existing cluster's security configuration
-# You might need to re-launch the cluster with the proper security configuration
-#
+# - Open SQS console: https://console.aws.amazon.com/sqs
+# - Select the queue
+# - Select the [Queue Actions] dropdown menu.
+# - Select [Configure Queue]
+# - Check [Use SSE] and select the KMS key
+# - [Save Changes]
+
 
 #    ______     ___     ____  _____   ________   _____     ______   
 #  .' ___  |  .'   `.  |_   \|_   _| |_   __  | |_   _|  .' ___  |  
@@ -64,7 +45,7 @@
 # \ `.___.'\ \  `-'  /  _| |_\   |_   _| |_      _| |_  \ `.___]  | 
 #  `.____ .'  `.___.'  |_____|\____| |_____|    |_____|  `._____.'  
 # Configurable options                                                                  
-@options = {
+@options = {  
   # When a resource has one or more matching tags, the resource will be excluded from the checks
   # and a PASS alert is generated
   # Example:
@@ -73,20 +54,14 @@
   #     {key: "environment", value: "dev*"}
   # ]
   # For wildcard, use *  . If set value: "*", it will match any value inside of the tag
-  exclude_on_tag: [
-    {key: "environment", value: "test*"}
-  ],
+  #
+  # WARNING: Pulling tags requires additional API call. Therefore, tag information will be pulled
+  #          if there is one or more tags specified in 'exclude_on_tag'
+  exclude_on_tag: [],
 
   # Case sensitivity when comparint the tag key & value
   case_insensitive: true,
 
-  # If set to true, FAIL alert will be generated if
-  # in-tansit encryption is not enabled
-  require_in_transit_encryption: true ,
-
-  # If set to true, FAIL alert will be generated if
-  # at-rest encryption is not enabled
-  require_at_rest_encryption: true ,
 
 }
 
@@ -99,50 +74,49 @@
                                                                       
 # deep inspection attribute will be included in each alert
 configure do |c|
-    c.deep_inspection   = [:id, :name, :status, :security_configuration, :security_configuration_details, :tags, :options]
+    c.deep_inspection   = [:queue_arn, :queue_url, :created_time,  :last_modified, :kms_key_id]
 end
-
 
 def perform(aws)
-  aws.emr.list_clusters[:clusters].each do | cluster |
-    # Terminated EMR cluster stil shows up for ~2 weeks
-    next if cluster[:status][:state].include?("TERMINAT")
+  aws.sqs.list_queues[:queue_urls].each do | queue_url |
+    queue_attributes = aws.sqs.get_queue_attributes(queue_url: queue_url, attribute_names: ["All"])[:attributes]
+    queue_arn =  queue_attributes["QueueArn"]
 
-    cluster_details = aws.emr.describe_cluster(cluster_id: cluster[:id])[:cluster]
-    cluster_name = cluster_details[:name]
-    set_data(cluster_details)
-
-    if get_tag_matches(@options[:exclude_on_tag], cluster_details[:tags]).count > 0
-      pass(message: "EMR cluster #{cluster_name} is excluded due to the tag", resource_id: cluster_details[:id])
-      next
-    end
-
-    if cluster_details.key?("security_configuration") == false or cluster_details[:security_configuration] == ""
-      set_data(security_configuration: nil)
-      fail(message: "EMR cluster #{cluster_name} has no security configuration set", resource_id: cluster_details[:id])
-      next
-    end
-
-    security_configuration = aws.emr.describe_security_configuration({name: cluster_details[:security_configuration]})[:security_configuration]
-    security_configuration = JSON.parse(security_configuration) if security_configuration.is_a? String
-
-    set_data(security_configuration_details: security_configuration)
-    if security_configuration["EncryptionConfiguration"]["EnableInTransitEncryption"] and security_configuration["EncryptionConfiguration"]["EnableAtRestEncryption"]
-      pass(message: "EMR cluster #{cluster_name} has both in-transit and at-rest encryption enabled", resource_id: cluster_details[:id])
+    set_data({
+      queue_arn: queue_attributes["QueueArn"],
+      queue_url: queue_url,
+      created_time: queue_attributes["CreatedTimestamp"],
+      last_modified: queue_attributes["LastModifiedTimestamp"]
+      })
+    if queue_attributes.key?("KmsMasterKeyId")
+      set_data(kms_key_id: queue_attributes["KmsMasterKeyId"])
+      pass(message: "SQS queue #{queue_arn} has encryption enabled", resource_id: queue_arn)
     else
-      if @options[:require_at_rest_encryption] and security_configuration["EncryptionConfiguration"]["EnableAtRestEncryption"] == false
-        fail(message: "EMR cluster #{cluster_name} does not have at-rest encryption enabled", resource_id: cluster_details[:id])
-      elsif @options[:require_in_transit_encryption] and security_configuration["EncryptionConfiguration"]["EnableInTransitEncryption"] == false
-        fail(message: "EMR cluster #{cluster_name} does not have in-transit encryption enabled", resource_id: cluster_details[:id])
-      else
-        # Should not happen...
-        fail(message: "EMR clsuter #{cluster_name} does not have in-transit or at-rest encryption enabled", resource_id: cluster_details[:id])
-      end
-    end
+      if @options[:exclude_on_tag].count > 0
 
+        begin
+          tags = aws.sqs.list_queue_tags(queue_url: queue_url)[:tags]
+          if get_tag_matches(@options[:exclude_on_tag], tags).count > 0
+            pass(message: "SQS queue #{queue_arn} does not have encryption enabled. Alert set to pass due to the tags", resource_id: queue_arn, tags: tags, options: @options)
+            next
+          end          
+        rescue StandardError => e
+          if e.message.include?("undefined method") or e.message.include?("NoMethodError")
+            # AWS ruby SDK v2 and v3 should have [list_queue_tags] method
+            # Fall back to fail alert. AWS SDK 3.0.1 is missing [list_queue_tags] method.
+          else
+            error(message: "Encountered error when getting tag for #{queue_arn}.", error: e.message, resource_id: queue_arn)
+            next
+          end
+        end
+        
+      end
+
+      fail(message: "SQS queue #{queue_arn} does not have encryption enabled", resource_id: queue_arn)
+
+    end
   end
 end
-
 
 
 # Return the number of matching tags if one of the tag key-value pair matches

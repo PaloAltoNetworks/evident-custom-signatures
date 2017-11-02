@@ -23,7 +23,8 @@
 #
 
 # Description:
-# Check for Cluster's Security Configuration (Encryption)
+# Check to see if EMR Cluster is deployed in VPC or EC2 classic
+# To enforce private VPC, set `fail_on_public_subnet` to true
 #
 # This custom signature requires additional permission:
 # {
@@ -46,15 +47,12 @@
 #
 # 
 # Default Conditions:
-# - PASS: EMR cluster has both in-transit and at-rest encryption enabled
-# - FAIL: EMR cluster has no security configuration (encryption) set
-# - FAIL: EMR cluster has only in-transit or at-rest encryption enabled
+# - PASS: EMR cluster is deployed in VPC
+# - FAIL: EMR cluster is deployed in EC2 classic
 # 
 #
 # Resolution/Remediation:
-# As of Sept 2017, you can only specify the security configuration when launching a cluster and there is
-# no option to modify the existing cluster's security configuration
-# You might need to re-launch the cluster with the proper security configuration
+# You might need to re-launch the cluster inside of a VPC
 #
 
 #    ______     ___     ____  _____   ________   _____     ______   
@@ -74,19 +72,13 @@
   # ]
   # For wildcard, use *  . If set value: "*", it will match any value inside of the tag
   exclude_on_tag: [
-    {key: "environment", value: "test*"}
   ],
 
   # Case sensitivity when comparint the tag key & value
   case_insensitive: true,
 
-  # If set to true, FAIL alert will be generated if
-  # in-tansit encryption is not enabled
-  require_in_transit_encryption: true ,
-
-  # If set to true, FAIL alert will be generated if
-  # at-rest encryption is not enabled
-  require_at_rest_encryption: true ,
+  # If set to true, EMR cluster is expected to be launched in a private subnet
+  fail_on_public_subnet: false
 
 }
 
@@ -96,14 +88,18 @@
 # | |          |  __  |     |  _| _  | |          |  __'.     _.____`.  
 # \ `.___.'\  _| |  | |_   _| |__/ | \ `.___.'\  _| |  \ \_  | \____) | 
 #  `.____ .' |____||____| |________|  `.____ .' |____||____|  \______.' 
-                                                                      
+                                                                    
 # deep inspection attribute will be included in each alert
 configure do |c|
-    c.deep_inspection   = [:id, :name, :status, :security_configuration, :security_configuration_details, :tags, :options]
+  c.deep_inspection   = [:id, :name, :status, :ec2_instance_attributes, :tags, :options, :subnet_details]
 end
 
 
 def perform(aws)
+  if @options[:fail_on_public_subnet]
+    subnets = get_subnets(aws)
+  end
+
   aws.emr.list_clusters[:clusters].each do | cluster |
     # Terminated EMR cluster stil shows up for ~2 weeks
     next if cluster[:status][:state].include?("TERMINAT")
@@ -113,37 +109,112 @@ def perform(aws)
     set_data(cluster_details)
 
     if get_tag_matches(@options[:exclude_on_tag], cluster_details[:tags]).count > 0
-      pass(message: "EMR cluster #{cluster_name} is excluded due to the tag", resource_id: cluster_details[:id])
+      pass(message: "EMR cluster #{cluster_name} is excluded due to the tag", resource_id: cluster_details[:id], options: @options)
       next
     end
 
-    if cluster_details.key?("security_configuration") == false or cluster_details[:security_configuration] == ""
-      set_data(security_configuration: nil)
-      fail(message: "EMR cluster #{cluster_name} has no security configuration set", resource_id: cluster_details[:id])
-      next
-    end
-
-    security_configuration = aws.emr.describe_security_configuration({name: cluster_details[:security_configuration]})[:security_configuration]
-    security_configuration = JSON.parse(security_configuration) if security_configuration.is_a? String
-
-    set_data(security_configuration_details: security_configuration)
-    if security_configuration["EncryptionConfiguration"]["EnableInTransitEncryption"] and security_configuration["EncryptionConfiguration"]["EnableAtRestEncryption"]
-      pass(message: "EMR cluster #{cluster_name} has both in-transit and at-rest encryption enabled", resource_id: cluster_details[:id])
+    if cluster_details[:ec2_instance_attributes].key?("ec2_subnet_id")
+      subnet_id = cluster_details[:ec2_instance_attributes][:ec2_subnet_id]
     else
-      if @options[:require_at_rest_encryption] and security_configuration["EncryptionConfiguration"]["EnableAtRestEncryption"] == false
-        fail(message: "EMR cluster #{cluster_name} does not have at-rest encryption enabled", resource_id: cluster_details[:id])
-      elsif @options[:require_in_transit_encryption] and security_configuration["EncryptionConfiguration"]["EnableInTransitEncryption"] == false
-        fail(message: "EMR cluster #{cluster_name} does not have in-transit encryption enabled", resource_id: cluster_details[:id])
+      subnet_id = ""
+    end
+
+    if subnet_id == "" or subnet_id == nil
+      fail(message: "EMR cluster #{cluster_name} is deployed in EC2 classic", resource_id: cluster_details[:id])
+    else
+      if @options[:fail_on_public_subnet] == false
+        pass(message: "EMR cluster #{cluster_name} is deployed in VPC", resource_id: cluster_details[:id])
       else
-        # Should not happen...
-        fail(message: "EMR clsuter #{cluster_name} does not have in-transit or at-rest encryption enabled", resource_id: cluster_details[:id])
+        set_data(subnet_details: subnets[subnet_id])
+        if subnets[subnet_id][:default_route] =~ /^igw-/
+          fail(message: "EMR cluster #{cluster_name} is deployed in VPC's public subnet", resource_id: cluster_details[:id])          
+        else
+          pass(message: "EMR cluster #{cluster_name} is deployed in VPC's private subnet", resource_id: cluster_details[:id])
+        end
       end
     end
-
   end
 end
 
 
+#
+# Get the list of subnet and their info
+#
+# Output structure:
+# [<subnet_id>].vpc_id
+#              .availability_zone
+#              .subnet_name
+#              .tags
+#              .route_table_id
+#              .default_route
+#              .routes
+#
+def get_subnets(aws)
+  output = {}
+
+  # if a route table is set as Main, the associated subnets are not included.
+  # However, vpc_id is included. So, let's create a subnet - vpc_id lookup
+  subnets = {}
+  aws.ec2.describe_subnets[:subnets].each do | subnet |
+    subnet_name = ""
+
+    subnets[subnet[:subnet_id]] = {
+      vpc_id: subnet[:vpc_id],
+      availability_zone: subnet[:availability_zone],
+      subnet_name: subnet_name,
+      tags: subnet[:tags]
+    }
+  end
+
+  route_tables = aws.ec2.describe_route_tables[:route_tables]
+  route_tables.each do | route_table |
+    default_route = nil
+
+    # Check the default route (ipv4 or ipv6) whether it goes to 
+    # IGW or NAT instance, or something else (other)
+    route_table[:routes].each do |route|
+      if ["0.0.0.0/0","::/0"].include?(route[:destination_cidr_block])
+        if route[:gateway_id] =~ /^igw-/
+          default_route =  route[:gateway_id]
+        elsif route[:network_interface_id] =~ /^eni-/ 
+          default_route = route[:network_interface_id]
+        else
+          default_route = "other"
+        end
+      end
+    end
+
+    route_table[:associations].each do |association|
+      # For "main" association, we go through the subnet lookup for matching vpc_id
+      # and assign it to the output if the vpc_id matches and there's no explicit association
+      if association[:main]
+        vpc_id = route_table[:vpc_id]
+        subnets.each do | subnet_id, subnet_info |
+          # if there is an explicit association, do nothing
+          next if output.key?(subnet_id)
+          
+          if vpc_id == subnet_info[:vpc_id]
+            output[subnet_id] = subnets[subnet_id]
+            output[subnet_id][:route_table_id] = route_table[:route_table_id]
+            output[subnet_id][:default_route] = default_route
+            output[subnet_id][:routes] = route_table[:routes]
+          end
+        end
+      # If the association is not main, the subnet is explicitly associated with the route table
+      # if the subnet is already added to the output (from the main association), this will override it.
+      else
+        subnet_id = association[:subnet_id]
+        output[subnet_id] = subnets[subnet_id]
+        output[subnet_id][:route_table_id] = route_table[:route_table_id]
+        output[subnet_id][:default_route] = default_route
+        output[subnet_id][:routes] = route_table[:routes]
+      end
+    end
+
+  end
+
+  return output
+end
 
 # Return the number of matching tags if one of the tag key-value pair matches
 def get_tag_matches(option_tags, aws_tags)
