@@ -37,7 +37,7 @@ configure do |c|
 end
 
 def perform(aws)
-  region = aws.ec2.config[:region]
+  region = aws.region
   resp   = aws.ec2.describe_instances(filters:[ {name: "instance-state-name", values: ["running", "stopped"] }]).reservations
   if resp.empty?
       pass(message: "No instances found in region, #{region}.")
