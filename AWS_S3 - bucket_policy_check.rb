@@ -44,6 +44,25 @@
 #  `.____ .'  `.___.'  |_____|\____| |_____|    |_____|  `._____.'  
 # Configurable options    
 @options = {
+  # When a resource has one or more matching tags, the resource will be excluded from the checks
+  # and a PASS alert is generated
+  # Example:
+  # exclude_on_tag: [
+  #     {key: "skipped", value: "yeah"},
+  #     {key: "skipped", value: "ye*"}
+  # ]
+  # For wildcard, use *  . If set value: "*", it will match any value inside of the tag
+  #
+  # WARNING: Pulling tags requires additional API call. Therefore, tag information will be pulled
+  #          if there is one or more tags specified in 'exclude_on_tag'
+  exclude_on_tag: [
+    {key: "test", value: "value"}
+  ],
+
+
+  # Case sensitivity when comparint the tag key & value
+  case_insensitive: true,
+
   # List of blacklisted actions that should not be allowed.
   # CASE SENSITIVE
   #
@@ -209,6 +228,13 @@ def check_resource(resource,aws)
       return
     end
 
+    bucket_exclusion_cause = get_bucket_exclusion_cause(aws,resource_name)
+    if bucket_exclusion_cause != ""
+        set_data(bucket_name: resource_name, bucket_location: bucket_location, options: @options)
+        pass(message: "Bucket #{resource_name} is skipped from the check due to the #{bucket_exclusion_cause}", resource_id: resource_name)
+        return
+    end
+    
 
     policy_doc = aws.s3.get_bucket_policy({bucket: resource_name})[:policy].read
     if policy_doc.is_a? String
@@ -425,6 +451,70 @@ def statement_restricted_by_condition?(condition)
 
 
   return false
+end
+
+# Return the number of matching tags if one of the tag key-value pair matches
+def get_tag_matches(option_tags, aws_tags)
+  matches = []
+
+  option_tags.each do | option_tag |
+    # If tag value is a string, do string comparison (with wildcard support)
+    if option_tag[:value].is_a? String
+      option_value = option_tag[:value].sub('*','.*')
+
+      aws_tags.each do | aws_tag |
+        if @options[:case_insensitive]
+          value_pattern = /^#{option_value}$/i
+          matches.push(aws_tag) if option_tag[:key].downcase == aws_tag[:key].downcase and aws_tag[:value].match(value_pattern)
+        else
+          value_pattern = /^#{option_value}$/
+          matches.push(aws_tag) if option_tag[:key] == aws_tag[:key] and aws_tag[:value].match(value_pattern)
+        end
+      end
+
+    # if tag value is an array, check if value is in the array
+    else
+      if @options[:case_insensitive]
+        option_values = option_tag[:value].map(&:downcase)
+      else
+        option_values = option_tag[:value]
+      end
+
+      aws_tags.each do | aws_tag |
+        if @options[:case_insensitive]
+          matches.push(aws_tag) if (option_tag[:key].downcase == aws_tag[:key].downcase && (option_values.include?(aws_tag[:value].downcase)))
+        else
+          matches.push(aws_tag) if (option_tag[:key] == aws_tag[:key] && (option_values.include?(aws_tag[:value])))
+        end
+      end
+    end
+  end
+
+  return matches
+end
+
+def get_bucket_exclusion_cause(aws, bucket_name)
+  # Check to see if the bucket should be included base on its tags
+  if @options[:exclude_on_tag].count > 0
+    begin
+      tags = aws.s3.get_bucket_tagging({bucket: bucket_name})[:tag_set]
+      return "tags" if get_tag_matches(@options[:exclude_on_tag], tags).count > 0
+    rescue StandardError => e
+      if e.message.include?("The TagSet does not exist")
+      # do nothing
+      end
+    end
+  end
+
+  # Check to see if bucket is listed in bucket_whitelist
+  #return "bucket_whitelist" if @options[:bucket_whitelist].include?(bucket_name)
+
+  # Check to see if bucket should be excluded based on regex
+  #if @options[:exclude_bucket_on_regex].nil? == false
+  #  return "regex" if bucket_name.match(@options[:exclude_bucket_on_regex])
+  #end
+
+  return ""
 end
 
 
