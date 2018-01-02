@@ -96,7 +96,7 @@ end
 
 def perform(aws)
   #lowercasing enforced parmeters
-  @options[:enforced_parameters] = JSON.parse(JSON.dump(@options[:enforced_parameters], sort_keys=True).downcase)
+  @options[:enforced_parameters] = JSON.parse(JSON.dump(@options[:enforced_parameters]).downcase)
 
   if @options[:db_type] == "instance"
     inspect_db_parameter_group_settings(aws)
