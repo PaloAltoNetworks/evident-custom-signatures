@@ -22,14 +22,13 @@
 #  EVIDENT.IO HAS NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 #
 
-#
 # Description:
-# Ensure that Classic Load Balancer (ELB) has access log enabled
-#
-# Default Condition:
-# PASS: Access log is enabled 
-# FAIL: Access log is not enabled
-#
+# Ensures that ELB HTTPS/SSL listeners use approved certificates
+# 
+# Default Conditions:
+# - PASS: ELB does not have listener with unapproved SSL certificate
+# - FAIL: One of ELB HTTPS/SecureTCP listener uses unapproved certificate
+
 
 #    ______     ___     ____  _____   ________   _____     ______   
 #  .' ___  |  .'   `.  |_   \|_   _| |_   __  | |_   _|  .' ___  |  
@@ -38,18 +37,21 @@
 # \ `.___.'\ \  `-'  /  _| |_\   |_   _| |_      _| |_  \ `.___]  | 
 #  `.____ .'  `.___.'  |_____|\____| |_____|    |_____|  `._____.'  
 # Configurable options                                                                  
-@options = {  
-  # List of approved target S3 bucket
-  # Case sensitive
+@options = {
+  # List of approved certificates. Case sensitive
+  # For IAM server certificate, use the certificate name
+  # For ACN, use the certificate ID
   #
-  # If approved_target_bucket is left empty, PASS alert is generated 
-  #   as long as logging to S3 bucket is enabled.
-  # If not empty, the target bucket needs to match one of the bucket 
-  #   specified in the approved_target_bucket list
+  # For example, to whitelist the following certificates:
+  # - IAM server certificate: arn:aws:iam::123456789012:server-certificate/myServerCert
+  # - ACM certificate: arn:aws:acm:us-west-2:123456789012:certificate/abcdefgh-1234-5678-abcd-0000abcdefgh
   #
-  # Example:
-  # approved_target_bucket: ["my_lb_logs", "central_lb_logs"],
-  approved_target_bucket: [],
+  # approved_certificate: [
+  #   "myServerCert",
+  #   "abcdefgh-1234-5678-abcd-0000abcdefgh"
+  # ],
+  approved_certificate: [
+  ],
 
   # When a resource has one or more matching tags, the resource will be excluded from the checks
   # and a PASS alert is generated
@@ -67,8 +69,8 @@
 
   # Case sensitivity when comparing the tag key & value
   case_insensitive: true,
-}
 
+}
 
 #    ______   ____  ____   ________     ______   ___  ____     ______   
 #  .' ___  | |_   ||   _| |_   __  |  .' ___  | |_  ||_  _|  .' ____ \  
@@ -79,9 +81,8 @@
                                                                       
 # deep inspection attribute will be included in each alert
 configure do |c|
-    c.deep_inspection   = [:load_balancer_arn, :load_balancer_name, :created_time, :load_balancer_attributes, :type, :tags, :options]
+    c.deep_inspection   = [:load_balancer_name, :load_balancer_dns_name, :listener_descriptions, :offending_listeners, :options, :tags]
 end
-
 
 def perform(aws)
   aws.elb.describe_load_balancers[:load_balancer_descriptions].each do | lb |
@@ -89,9 +90,6 @@ def perform(aws)
     set_data(options: @options)
 
     lb_name = lb[:load_balancer_name]
-
-    lb_attributes = aws.elb.describe_load_balancer_attributes(load_balancer_name: lb_name)[:load_balancer_attributes]
-    set_data(load_balancer_attributes: lb_attributes)
 
     # We need a separate call to get ELB classic tags. So, tag is grabbed only if necessary
     if @options[:exclude_on_tag].count > 0
@@ -107,22 +105,21 @@ def perform(aws)
       end
     end
 
-    if lb_attributes[:access_log][:enabled]
-      # access log is enabled. check the target bucket requirement
-      if @options[:approved_target_bucket].count > 0 
-        if @options[:approved_target_bucket].include?(lb_attributes[:access_log][:s3_bucket_name])
-          pass(message: "Load Balancer #{lb_name} has access log enabled to the approved S3 bucket", resource_id: lb_name)
-        else
-          fail(message: "Load Balancer #{lb_name} has access log enabed to unapproved S3 bucket", resource_id: lb_name)
+    offending_listeners = []
+    lb[:listener_descriptions].each do | item |
+      if ["HTTPS","SSL"].include?(item[:listener][:protocol])
+        if @options[:approved_certificate].include?(item[:listener][:ssl_certificate_id].split("certificate/")[1]) == false
+          offending_listeners.push(item[:listener])
         end
-      else
-        pass(message: "Load Balancer #{lb_name} has access log enabled", resource_id: lb_name)
       end
-    
-    else
-      fail(message: "Load Balancer #{lb_name} does not have access log enabled.", resource_id: lb_name)
     end
-    
+
+    set_data(offending_listeners: offending_listeners)
+    if offending_listeners.count > 0
+      fail(message: "Load Balancer #{lb_name} has one or more listener with unapproved SSL certificate", resource_id: lb_name)
+    else
+      pass(message: "Load Balancer #{lb_name} does not have listener with unapproved SSL certificate", resource_id: lb_name)
+    end
   end
 end
 
