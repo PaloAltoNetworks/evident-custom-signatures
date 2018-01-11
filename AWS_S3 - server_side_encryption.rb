@@ -129,7 +129,7 @@ def perform(aws)
       check_resource(resource,aws)
     end
   rescue StandardError => e
-    error(message: "Error in getting the bucket list", error: e.message)
+    warn(message: "Error in getting the bucket list", error: e.message)
     return  
   end
   
@@ -180,7 +180,7 @@ def check_resource(resource,aws)
     if e.message.include?("The bucket policy does not exist")
       fail(message: "Bucket #{resource_name} does not have any policy set", resource_id: resource_name)
     else
-      error(message: "Error in processing bucket #{resource_name}. Error: #{e.message}", resource_id: resource_name)
+      warn(message: "Error in processing bucket #{resource_name}. Error: #{e.message}", resource_id: resource_name)
     end
 
     return
