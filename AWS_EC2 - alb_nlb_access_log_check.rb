@@ -24,11 +24,20 @@
 
 #
 # Description:
-# Ensure that Classic Load Balancer (ELB) has access log enabled
+# Ensure that ALB/NLB has access log enabled
 #
 # Default Condition:
 # PASS: Access log is enabled 
 # FAIL: Access log is not enabled
+#
+# Resolution/Remediation:
+# - Go to EC2 console
+# - Select "Load Balancers" from the left navigation menu
+# - Select the load balancer name
+# - Under the Attributes section on the lower panel, select "Edit Attributes"
+# - Check the "Enable Access Log"
+# - Specify the target S3 bucket
+# - Hit "Save"
 #
 
 #    ______     ___     ____  _____   ________   _____     ______   
@@ -84,20 +93,22 @@ end
 
 
 def perform(aws)
-  aws.elb.describe_load_balancers[:load_balancer_descriptions].each do | lb |
+  aws.elbv2.describe_load_balancers[:load_balancers].each do | lb |
     set_data(lb)
     set_data(options: @options)
 
     lb_name = lb[:load_balancer_name]
+    lb_arn = lb[:load_balancer_arn]
 
-    lb_attributes = aws.elb.describe_load_balancer_attributes(load_balancer_name: lb_name)[:load_balancer_attributes]
+    lb_attributes = aws.elbv2.describe_load_balancer_attributes(load_balancer_arn: lb_arn)[:attributes]
     set_data(load_balancer_attributes: lb_attributes)
 
-    # We need a separate call to get ELB classic tags. So, tag is grabbed only if necessary
+
+    # We need a separate call to get ELBv2 tags. So, tag is grabbed only if necessary
     if @options[:exclude_on_tag].count > 0
       tags = []
-      aws.elb.describe_tags(load_balancer_names: [lb_name])[:tag_descriptions].each do | tag_descriptions |
-        tags = tag_descriptions[:tags] if tag_descriptions[:load_balancer_name] == lb_name
+      aws.elbv2.describe_tags(resource_arns: [lb_arn])[:tag_descriptions].each do | tag_descriptions |
+        tags = tag_descriptions[:tags] if tag_descriptions[:resource_arn] == lb_arn
       end
       set_data(tags: tags)
 
@@ -107,10 +118,17 @@ def perform(aws)
       end
     end
 
-    if lb_attributes[:access_log][:enabled]
+    access_log_enabled = false
+    matching_target_bucket = false
+    lb_attributes.each do | lb_attr |
+      access_log_enabled = true if lb_attr[:key] == "access_logs.s3.enabled" and (lb_attr[:value] == "true" or lb_attr[:value] == true)
+      matching_target_bucket = true if lb_attr[:key] == "access_logs.s3.bucket" and @options[:approved_target_bucket].include?(lb_attr[:value])
+    end
+
+    if access_log_enabled
       # access log is enabled. check the target bucket requirement
       if @options[:approved_target_bucket].count > 0 
-        if @options[:approved_target_bucket].include?(lb_attributes[:access_log][:s3_bucket_name])
+        if matching_target_bucket
           pass(message: "Load Balancer #{lb_name} has access log enabled to the approved S3 bucket", resource_id: lb_name)
         else
           fail(message: "Load Balancer #{lb_name} has access log enabed to unapproved S3 bucket", resource_id: lb_name)
@@ -122,7 +140,7 @@ def perform(aws)
     else
       fail(message: "Load Balancer #{lb_name} does not have access log enabled.", resource_id: lb_name)
     end
-    
+
   end
 end
 
