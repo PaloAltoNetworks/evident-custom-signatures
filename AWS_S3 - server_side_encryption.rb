@@ -119,7 +119,7 @@
                                                                       
 # deep inspection attribute will be included in each alert
 configure do |c|
-    c.deep_inspection   = [:bucket_name, :creation_date, :offending_statements, :policy_doc, :options]
+    c.deep_inspection   = [:bucket_name, :creation_date, :offending_statements, :policy_doc, :options, :encryption_config]
 end
 
 
@@ -157,8 +157,21 @@ def check_resource(resource,aws)
       return
     end
 
-
     # Bucket is not excluded from the check.
+
+    # Check to see if SSE is enabled through bucket settings (new S3 feature)
+    begin
+      encryption_config = aws.s3.get_bucket_encryption(bucket: resource_name)[:server_side_encryption_configuration][:rules]
+      set_data(encryption_config: encryption_config)
+      pass(message: "Bucket #{resource_name} has SSE enabled through bucket config", resource_id: resource_name)
+      return
+    rescue StandardError => e
+      if e.message.include?("server side encryption configuration was not found") == false
+        warn(message: "Encountered error when getting the bucket encryption", error: e.message, resource_id: resource_name)
+        return
+      end
+    end
+
     # Grabbing the policy doc...
     policy_doc = aws.s3.get_bucket_policy({bucket: resource_name})[:policy].read
     if policy_doc.is_a? String
@@ -269,18 +282,24 @@ def statement_has_sse?(statement)
   return false if statement["Effect"] == "Allow"
 
   if statement["Action"].is_a? Array
-    return false if statement["Action"].include?("s3:PutObject") == false
+    return false if ( statement["Action"] & ["s3:PutObject","s3:*","*"]).count < 1
   else
-    return false if statement["Action"] != "s3:PutObject"
+    return false if (["s3:PutObject","s3:*","*"].include?(statement["Action"]) == false)
   end
+
+  # Check the principal. Require principal to be * or AWS:*
+  if statement["Principal"].is_a? Hash
+    return false if statement["Principal"]["AWS"] != "*"
+  else
+    return false if statement["Principal"] != "*"
+  end      
 
   # Check condition
   if statement.key?("Condition")
     # OPtion 1
-    if statement["Condition"].key?("StringNotEquals") and statement["Condition"]["StringNotEquals"].key?("s3:x-amz-server-side-encryption") and
-      statement["Condition"]["StringNotEquals"]["s3:x-amz-server-side-encryption"] == "AES256"
-    then
-      return true
+    if statement["Condition"].key?("StringNotEquals") and statement["Condition"]["StringNotEquals"].key?("s3:x-amz-server-side-encryption")
+      sse = statement["Condition"]["StringNotEquals"]["s3:x-amz-server-side-encryption"].downcase
+      return true if ["aes256","aws:kms"].include?(sse)
     end
 
     # Option 2
