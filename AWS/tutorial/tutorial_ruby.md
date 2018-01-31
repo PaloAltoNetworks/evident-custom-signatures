@@ -16,14 +16,14 @@ In the `config` section you define the parameters your signature will use when i
 
 In the `perform` section you write a function that implements your security policy, and creates one or more __alerts__.  The alerts are themselves are created using the `pass()` and `fail()` functions. Each __alert__ is then stored in the database.
 
-In the `options` section you define settings to be used throughout the `perform` section. For example, a setting for the type of S3 storage to check for. 
+In the `options` section you define settings to be used throughout the `perform` section. For example, a setting for the type of Volume storage to check for. 
 
 ## `options`
 
 An example `options` section
 ```ruby
 @options = {
-  # Enter the type of S3 storage to check for
+  # Enter the type of Volume storage to check for
   # examples; "standard", "gp2"
   #
   type_to_check_for: "standard"
@@ -85,7 +85,7 @@ end
 An example `perform` section with `options`:
 ```ruby
 @options = {
-  # Enter the type of S3 storage to check for
+  # Enter the type of Volume storage to check for
   # examples; "standard", "gp2"
   #
   type_to_check_for: "standard"
