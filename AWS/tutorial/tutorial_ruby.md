@@ -35,8 +35,8 @@ An example `options` section
 An example `config` section
 ```ruby
 configure do |c|
-  c.valid_regions     = [:us_east_1]
-  c.deep_inspection   = [:volume_type, :volume_id]
+  c.valid_regions   = [:us_east_1]
+  c.deep_inspection = [:volume_type, :volume_id]
 end
 ```
 
@@ -131,6 +131,40 @@ def perform(aws)
           # You will create a pass alert with a message.
           pass( message: "volume is of type #{storage_type}", resource_id: volume_id)
 
+        end
+    end
+end
+```
+
+## `putting it all together`
+```ruby
+@options = {
+  # Enter the type of Volume storage to check for
+  # examples; "standard", "gp2"
+  #
+  type_to_check_for: "standard"
+}
+
+configure do |c|
+  c.deep_inspection = [:volume_type, :volume_id]
+end
+
+def perform(aws)
+
+    region       = aws.region
+    volumes      = aws.ec2.describe_volumes().volumes
+    storage_type = @options[:type_to_check_for]
+
+    volumes.each do | volume |
+        volume_type = volume[:volume_type]
+        volume_id   = volume[:volume_id]
+
+        set_data(volume_type: volume_type, volume_id: volume_id, region: region)
+
+        if volume_type != storage_type
+          fail( message: "volume is not of type #{storage_type}", resource_id: volume_id)
+        else
+          pass( message: "volume is of type #{storage_type}", resource_id: volume_id)
         end
     end
 end
