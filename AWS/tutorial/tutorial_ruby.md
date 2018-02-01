@@ -152,8 +152,9 @@ end
 def perform(aws)
 
     region       = aws.region
-    volumes      = aws.ec2.describe_volumes().volumes
     storage_type = @options[:type_to_check_for]
+
+    volumes      = aws.ec2.describe_volumes().volumes
 
     volumes.each do | volume |
         volume_type = volume[:volume_type]
