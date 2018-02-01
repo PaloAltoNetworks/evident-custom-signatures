@@ -146,7 +146,7 @@ end
 }
 
 configure do |c|
-  c.deep_inspection = [:volume_type, :volume_id]
+  c.deep_inspection = [:volume_type, :volume_id, :region]
 end
 
 def perform(aws)
