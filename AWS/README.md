@@ -2,6 +2,11 @@
 
 When calling AWS methods and classes within Custom Signatures, please use the list below as a reference.
 
+> Note for **ESP GOV Users**
+>
+> Some of the services are not available. 
+> Refer to [this page](https://docs.aws.amazon.com/govcloud-us/latest/UserGuide/using-services.html) for the list of available services
+
 | Class Name | Method Name |
 |------------|-------------|
 | ACM | acm |
