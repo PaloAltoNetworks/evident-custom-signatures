@@ -22,7 +22,6 @@
 #  EVIDENT.IO HAS NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 #
 
-#
 # Description:
 # Global Inbound Port Access (SG + ACL)
 # The port is open globally if the ip ranges is set to 0.0.0.0/0 (ipv4) or ::/0 (ipv6)
@@ -42,14 +41,16 @@
 # - Hit Save
 #
 
-
 #    ______     ___     ____  _____   ________   _____     ______   
 #  .' ___  |  .'   `.  |_   \|_   _| |_   __  | |_   _|  .' ___  |  
 # / .'   \_| /  .-.  \   |   \ | |     | |_ \_|   | |   / .'   \_|  
 # | |        | |   | |   | |\ \| |     |  _|      | |   | |   ____  
 # \ `.___.'\ \  `-'  /  _| |_\   |_   _| |_      _| |_  \ `.___]  | 
 #  `.____ .'  `.___.'  |_____|\____| |_____|    |_____|  `._____.'  
+#
+
 # Configurable options
+#
 @options = { 
   # List of inbound protocol,port,source IP
   # Required parameters:
@@ -61,20 +62,42 @@
   # blacklist: [
   #   { protocol: "tcp", from_port: 22, port_to: 22},
   #   { protocol: "tcp", from_port: 0, port_to: 1024}
-  # ]
-blacklist: [
-    { protocol: "tcp", from_port: 3389, to_port: 3389},
-    { protocol: "tcp", from_port: 22, to_port: 22}
+  # ],
+  #
+  blacklist: [
+    { protocol: "tcp", from_port: 22, to_port: 22 },
+    { protocol: "tcp", from_port: 3389, to_port: 3389 }
   ],
 
+  # Approved IPv4 CIDR ranges
+  # Use this option when looking for ALL IP ranges (not just 0.0.0.0/0) excluding your approved
+  # (whitelisted) IP addresses.
+  #
+  # Examples:
+  #   172.16.8.0/23 = "172.16.8.0/172.16.9.255"
+  #   172.16.8.0/24 = "172.16.8.0/172.16.8.255"
+  #   172.16.8.0/25 = "172.16.8.0/172.16.8.127"
+  #   172.16.8.1/32 = "172.16.8.1/172.16.8.1"
+  #
+  #   Subnet calc that can assist in converting CIDR notation into IP ranges:
+  #   https://mxtoolbox.com/subnetcalculator.aspx
+  #
+  # Example:
+  # whitelist_ipv4_ranges: [
+  #   "10.0.0.0/10.255.255.255",
+  #   "172.16.0.0/172.31.255.255"
+  # ],
+  #
+  whitelist_ipv4_ranges: [
+  ],
 
   # If set to true,
   #   FAIL alert is generated if the port is open on SG (regardless whether it is blocked by ACL or not)
   # If set to false,
   #   WARN alert is generated if the port is open on SG but blocked by ACL
+  #
   strict_mode: false
 }
-
 
 #    ______   ____  ____   ________     ______   ___  ____     ______   
 #  .' ___  | |_   ||   _| |_   __  |  .' ___  | |_  ||_  _|  .' ____ \  
@@ -82,28 +105,26 @@ blacklist: [
 # | |          |  __  |     |  _| _  | |          |  __'.     _.____`.  
 # \ `.___.'\  _| |  | |_   _| |__/ | \ `.___.'\  _| |  \ \_  | \____) | 
 #  `.____ .' |____||____| |________|  `.____ .' |____||____|  \______.' 
+#
                                                                       
 # deep inspection attribute will be included in each alert
 configure do |c|
-  c.deep_inspection   = [:owner_id, :group_id, :vpc_id, :group_name,
-                       :blacklist, :offending_sg_details, :ip_permissions, :tags ]
+  c.deep_inspection   = [:group_id, :vpc_id, :blacklist, :offending_sg_details]
 end
-
 
 def perform(aws)
   begin
 
     @network_acl = aws.ec2.describe_network_acls[:network_acls]
 
-
     security_groups = aws.ec2.describe_security_groups[:security_groups]
     security_groups.each do | sg |
-      vpc_id = sg[:vpc_id]
+      group_id   = sg[:group_id]
+      vpc_id     = sg[:vpc_id]
       
       offending_sg_permissions = find_offending_sg_perm(sg[:ip_permissions], vpc_id)
 
-      set_data(offending_sg_details: offending_sg_permissions, blacklist: @options[:blacklist])
-      set_data(sg)
+      set_data(group_id: group_id, vpc_id: vpc_id, blacklist: @options[:blacklist], offending_sg_details: offending_sg_permissions)
 
       has_acl_allow = false
       offending_sg_permissions.each do | offending_perm|
@@ -129,8 +150,8 @@ def perform(aws)
     return
   end
 
-
 end
+
 
 # inspect the protocol, port, ip ranges
 # returns the list of offending rules
@@ -146,13 +167,11 @@ def find_offending_sg_perm(ip_permissions, vpc_id)
         next if blacklist[:protocol].downcase != ip_permission[:ip_protocol].downcase
       end
       
-      
       if ip_permission.key?("from_port") && ip_permission.key?("to_port")
         # Next if IP permission range is outside of the blacklisted ports
         next if (ip_permission[:from_port] < blacklist[:from_port] and ip_permission[:to_port] < blacklist[:from_port])
         next if (ip_permission[:from_port] > blacklist[:to_port] and ip_permission[:to_port] > blacklist[:to_port])
       end
-
 
       bad_perm = {
         ip_protocol: ip_permission[:ip_protocol],
@@ -162,9 +181,20 @@ def find_offending_sg_perm(ip_permissions, vpc_id)
         ipv_6_ranges: [],
       }
 
-      ip_permission[:ip_ranges].each do | ipv4 |
-        if ipv4[:cidr_ip] == "0.0.0.0/0"
-          bad_perm[:ip_ranges].push(ipv4[:cidr_ip])
+      if @options[:whitelist_ipv4_ranges].count > 0
+        ip_permission[:ip_ranges].each do | ipv4 |
+          found = 0
+          @options[:whitelist_ipv4_ranges].each do |range|
+            first, last = range.split("/")
+            found =+ 1 if ip_in_range?(first, last, ipv4[:cidr_ip].split("/").first)
+          end
+          bad_perm[:ip_ranges].push(ipv4[:cidr_ip]) if found == 0
+        end
+      else
+        ip_permission[:ip_ranges].each do | ipv4 |
+          if ipv4[:cidr_ip] == "0.0.0.0/0"
+            bad_perm[:ip_ranges].push(ipv4[:cidr_ip])
+          end
         end
       end
 
@@ -175,10 +205,6 @@ def find_offending_sg_perm(ip_permissions, vpc_id)
       end
 
       bad_perm[:nacl_allow_rules] = get_nacl_allow_rules(bad_perm, vpc_id)
-
-
-
-
 
       offending_permissions.push(bad_perm) if bad_perm[:ip_ranges].count > 0 ||  bad_perm[:ipv_6_ranges].count > 0
 
@@ -231,7 +257,6 @@ def get_nacl_allow_rules(ip_permission, vpc_id)
         # Reaching this point means that this current ACL entry permits access (partially or completely)
         # Process the next ACL entry if the rule is deny  
         next if acl_entry[:rule_action] == "deny"
-
           
         if output.key?(acl[:network_acl_id])
           output[acl[:network_acl_id]].push(acl_entry)
@@ -243,9 +268,19 @@ def get_nacl_allow_rules(ip_permission, vpc_id)
         break
       end
 
-
     end
   end
 
   return output
+end
+
+
+# Convert private IP address to a number
+#
+def ip_to_num(ip)
+  ip.split(".").collect{|p| p.rjust(3, "0")}.join.to_i
+end
+
+def ip_in_range?(first, last, ip)
+  (ip_to_num(first)..ip_to_num(last)).include?(ip_to_num(ip))
 end
