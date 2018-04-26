@@ -96,7 +96,7 @@
 #
                                                                       
 configure do |c|
-  c.deep_inspection   = [:bucket_name, :bucket_location, :tags, :options]
+  c.deep_inspection   = [:bucket_name, :bucket_location, :tags, :tag_matches, :options]
 end
 
 def perform(aws)
@@ -128,14 +128,16 @@ def perform(aws)
       else
         tags = []
       end
-
-      set_data(bucket_name: bucket_name, bucket_location: bucket_location, tags: tags, options: @options)
+      
+      tag_matches = get_tag_matches(@options[:tag_trigger], tags)
+      
+      set_data(bucket_name: bucket_name, bucket_location: bucket_location, tags: tags, tag_matches: tag_matches, options: @options)
       bucket_exclusion_cause = get_bucket_exclusion_cause(aws,bucket_name, tags)
       
       if bucket_exclusion_cause != ""
         pass(message: "Bucket #{bucket_name} is skipped from the check due to the #{bucket_exclusion_cause}", resource_id: bucket_name)
       else
-        if get_tag_matches(@options[:tag_trigger], tags).count == @options[:tag_trigger].count
+        if tag_matches.count == @options[:tag_trigger].count
           pass(message: "All matching bucket tags were found.", resource_id: bucket_name)
         else
           fail(message: "Matching bucket tags were not found.", resource_id: bucket_name)
@@ -207,33 +209,45 @@ def get_tag_matches(option_tags, aws_tags)
     if option_tag[:value].is_a? String
       option_value = option_tag[:value].sub('*','.*')
 
-      aws_tags.each do | aws_tag | 
+      aws_tags.each do | aws_tag |
+        match = false
+        matches.each do | m |
+          match = true if m["key"].downcase == aws_tag[:key].downcase
+        end
+        next if match == true
+
         if @options[:case_insensitive]
           value_pattern = /^#{option_value}$/i
           matches.push(aws_tag) if option_tag[:key].downcase == aws_tag[:key].downcase and aws_tag[:value].match(value_pattern)
         else
           value_pattern = /^#{option_value}$/
           matches.push(aws_tag) if option_tag[:key] == aws_tag[:key] and aws_tag[:value].match(value_pattern)
-        end          
+        end 
       end
 
     # if tag value is an array, check if value is in the array
     else
-      if @options[:case_insensitive]
+      if @options[:case_insensitive] 
         option_values = option_tag[:value].map(&:downcase)
       else
         option_values = option_tag[:value]
       end
 
       aws_tags.each do | aws_tag |
+        match = false
+        matches.each do | m |
+          match = true if m["key"].downcase == aws_tag[:key].downcase
+        end
+        next if match == true
+        
         if @options[:case_insensitive]
-          matches.push(aws_tag) if (option_tag[:key].downcase == aws_tag[:key].downcase && (option_values.include?(aws_tag[:value].downcase)))
+          matches.push(aws_tag) if (option_tag[:key].downcase == aws_tag[:key].downcase and (option_values.include?(aws_tag[:value].downcase)))
         else
-          matches.push(aws_tag) if (option_tag[:key] == aws_tag[:key] && (option_values.include?(aws_tag[:value])))
+          matches.push(aws_tag) if (option_tag[:key] == aws_tag[:key] and (option_values.include?(aws_tag[:value])))
         end
       end
     end
   end
-
+  
   return matches
 end
