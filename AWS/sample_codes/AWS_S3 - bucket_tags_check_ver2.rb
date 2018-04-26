@@ -96,7 +96,7 @@
 #
                                                                       
 configure do |c|
-  c.deep_inspection   = [:bucket_name, :bucket_location, :tags, :options]
+  c.deep_inspection   = [:bucket_name, :bucket_location, :tags, :tag_matches, :options]
 end
 
 def perform(aws)
@@ -129,15 +129,15 @@ def perform(aws)
         tags = []
       end
       
-      #tag_matches = get_tag_matches(@options[:tag_trigger], tags)
+      tag_matches = get_tag_matches(@options[:tag_trigger], tags)
       
-      set_data(bucket_name: bucket_name, bucket_location: bucket_location, tags: tags, options: @options)
+      set_data(bucket_name: bucket_name, bucket_location: bucket_location, tags: tags, tag_matches: tag_matches, options: @options)
       bucket_exclusion_cause = get_bucket_exclusion_cause(aws,bucket_name, tags)
       
       if bucket_exclusion_cause != ""
         pass(message: "Bucket #{bucket_name} is skipped from the check due to the #{bucket_exclusion_cause}", resource_id: bucket_name)
       else
-        if get_tag_matches(@options[:tag_trigger], tags).count == @options[:tag_trigger].count
+        if tag_matches.count == @options[:tag_trigger].count
           pass(message: "All matching bucket tags were found.", resource_id: bucket_name)
         else
           fail(message: "Matching bucket tags were not found.", resource_id: bucket_name)
