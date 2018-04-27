@@ -46,7 +46,7 @@
 # }
 # 
 # Default Conditions:
-# - FAIL: for each GuardDuty findings
+# - INFO: for each GuardDuty findings
 
 #    ______   ____  ____   ________     ______   ___  ____     ______   
 #  .' ___  | |_   ||   _| |_   __  |  .' ___  | |_  ||_  _|  .' ____ \  
