@@ -10,6 +10,7 @@ When calling AWS methods and classes within Custom Signatures, please use the li
 | Class Name | Method Name |
 |------------|-------------|
 | ACM | acm |
+| ACMPCA | acmpca |
 | AlexaForBusiness | alexa_for_business |
 | APIGateway | api_gateway |
 | ApplicationAutoScaling | aas |
@@ -18,6 +19,7 @@ When calling AWS methods and classes within Custom Signatures, please use the li
 | AppSync | appsync |
 | Athena | athena |
 | AutoScaling | as |
+| AutoScalingPlans | asp |
 | Batch | batch |
 | Budgets | budgets |
 | Cloud9 | cloud9 |
@@ -41,6 +43,7 @@ When calling AWS methods and classes within Custom Signatures, please use the li
 | CognitoSync | cognito_sync |
 | Comprehend | comprehend |
 | ConfigService | config |
+| Connect | connect |
 | CostandUsageReportService | cost_and_usage |
 | CostExplorer | cost_explorer |
 | DatabaseMigrationService | database_migration_service |
@@ -63,6 +66,7 @@ When calling AWS methods and classes within Custom Signatures, please use the li
 | ElasticTranscoder | elt |
 | EMR | emr |
 | Firehose | firehose |
+| FMS | fms |
 | GameLift | gamelift |
 | Glacier | glacier |
 | Glue | glue |
@@ -73,6 +77,7 @@ When calling AWS methods and classes within Custom Signatures, please use the li
 | ImportExport | ie |
 | Inspector | inspector |
 | IoT | iot |
+| IoTAnalytics | iot_analytics |
 | Kinesis | ks |
 | KinesisAnalytics | kinesis_analytics |
 | KinesisVideo | kinesis_video |
@@ -113,8 +118,10 @@ When calling AWS methods and classes within Custom Signatures, please use the li
 | S3 | s3 |
 | SageMaker | sage_maker |
 | SageMakerRuntime | sage_maker_runtime |
+| SecretsManager | secrets_manager |
 | ServerlessApplicationRepository | serverless_application_repository |
 | ServiceCatalog | service_catalog |
+| ServiceDiscovery | service_discovery |
 | SES | ses |
 | Shield | shield |
 | SimpleDB | sdb |
@@ -128,9 +135,11 @@ When calling AWS methods and classes within Custom Signatures, please use the li
 | STS | sts |
 | Support | support |
 | SWF | swf |
+| TranscribeService | transcribe |
 | Translate | translate |
 | WAF | waf |
 | WAFRegional | waf_regional |
 | WorkDocs | workdocs |
+| WorkMail | workmail |
 | WorkSpaces | workspaces |
 | XRay | xray |
