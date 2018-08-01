@@ -47,39 +47,50 @@ end
 
 # Required perform method
 def perform(aws)
+    next_token = nil
 
-    finding_arns = aws.inspector.list_findings.finding_arns
-    
-    finding_arns.each do |finding_arn|
-        arn = finding_arn
-        findings = aws.inspector.describe_findings({ finding_arns: [arn] }).findings
+    while next_token != "end"
 
-        findings.each do |finding|
-            asset_attributes = finding.asset_attributes
-            instance_id = asset_attributes.agent_id
-            split_arn = arn.split(/\//)
-            unique_key = split_arn[7]
-            instance_tags = nil
-            if instance_id == nil
-                resource_id = "NOINSTANCE:#{unique_key}"
-            else
-                instance_tags = aws.ec2.describe_tags({
-                    filters: [
-                        {
-                            name: "resource-id", 
-                            values: [
-                                instance_id, 
-                            ], 
-                        }, 
-                    ], 
-                }).tags
+        resp = aws.inspector.list_findings({max_results: 500, next_token: next_token})
+        
+        if resp[:next_token] and resp[:next_token] != "end"
+            next_token = resp[:next_token]
+        else
+            next_token = "end"
+        end
 
-                resource_id = "#{instance_id}:#{unique_key}"
+        finding_arns = resp.finding_arns
+
+        finding_arns.each do |finding_arn|
+            arn = finding_arn
+            findings = aws.inspector.describe_findings({ finding_arns: [arn] }).findings
+
+            findings.each do |finding|
+                asset_attributes = finding.asset_attributes
+                instance_id = asset_attributes.agent_id
+                split_arn = arn.split(/\//)
+                unique_key = split_arn[7]
+                instance_tags = nil
+                if instance_id == nil
+                    resource_id = "NOINSTANCE:#{unique_key}"
+                else
+                    instance_tags = aws.ec2.describe_tags({
+                        filters: [
+                            {
+                                name: "resource-id", 
+                                values: [
+                                    instance_id, 
+                                ], 
+                            }, 
+                        ], 
+                    }).tags
+
+                    resource_id = "#{instance_id}:#{unique_key}"
+                end
+                set_data(finding, instance_id: instance_id, instance_tags: instance_tags)
+                fail(resource_id: resource_id)
             end
-            set_data(finding, instance_id: instance_id, instance_tags: instance_tags)
-            fail(resource_id: resource_id)
         end
     end
-    
 end
 
