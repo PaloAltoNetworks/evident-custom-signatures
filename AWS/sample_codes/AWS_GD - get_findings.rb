@@ -25,25 +25,6 @@
 # Description:
 # Sample ESP signature to pull GuardDuty findings
 # 
-# As GuardDuty in't included in SecurityAudit role as of Feb 2018,
-# Please add/attach `AmazonGuardDutyReadOnlyAccess` to ESP role.  
-#
-# In order to work, this signature requires at minimum the following permissions:
-# {
-#   "Version": "2012-10-17",
-#   "Statement": [
-#     {
-#       "Sid": "AllowAllUsersToViewAndManageThisGroup",
-#       "Effect": "Allow",
-#       "Action": [
-#         "guardduty:ListDetectors",
-#         "guardduty:GetFindings",
-#         "guardduty:ListFindings"
-#       ],
-#       "Resource": "*"
-#     }
-#   ]
-# }
 # 
 # Default Conditions:
 # - INFO: for each GuardDuty findings
