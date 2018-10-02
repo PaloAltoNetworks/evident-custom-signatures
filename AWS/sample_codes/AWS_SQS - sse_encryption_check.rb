@@ -1,42 +1,46 @@
-#
 # Copyright (c) 2013, 2014, 2015, 2016, 2017, 2018. Evident.io (Evident). All Rights Reserved. 
+# 
 #   Evident.io shall retain all ownership of all right, title and interest in and to 
 #   the Licensed Software, Documentation, Source Code, Object Code, and API's ("Deliverables"), 
-#   including (a) all information and technology capable of general application to Evident.io's customers; 
-#   and (b) any works created by Evident.io prior to its commencement of any Services for Customer. 
-#
+#   including (a) all information and technology capable of general application to Evident.io's
+#   customers; and (b) any works created by Evident.io prior to its commencement of any
+#   Services for Customer.
+# 
 # Upon receipt of all fees, expenses and taxes due in respect of the relevant Services, 
 #   Evident.io grants the Customer a perpetual, royalty-free, non-transferable, license to 
-#   use, copy, configure and translate any Deliverable solely for internal business operations of the Customer 
-#   as they relate to the Evident.io platform and products, 
-#   and always subject to Evident.io's underlying intellectual property rights.
-#
+#   use, copy, configure and translate any Deliverable solely for internal business operations
+#   of the Customer as they relate to the Evident.io platform and products, and always
+#   subject to Evident.io's underlying intellectual property rights.
+# 
 # IN NO EVENT SHALL EVIDENT.IO BE LIABLE TO ANY PARTY FOR DIRECT, INDIRECT, SPECIAL, 
 #   INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING LOST PROFITS, ARISING OUT OF 
-#   THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, 
-#   EVEN IF EVIDENT.IO HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
+#   THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF EVIDENT.IO HAS BEEN HAS BEEN
+#   ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+# 
 # EVIDENT.IO SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-#  THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. 
-#  THE SOFTWARE AND ACCOMPANYING DOCUMENTATION, IF ANY, PROVIDED HEREUNDER IS PROVIDED "AS IS". 
-#  EVIDENT.IO HAS NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+#   THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. 
+#   THE SOFTWARE AND ACCOMPANYING DOCUMENTATION, IF ANY, PROVIDED HEREUNDER IS PROVIDED "AS IS". 
+#   EVIDENT.IO HAS NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS,
+#   OR MODIFICATIONS.
 #
-
 # Description:
-# Check for SQS encryption setting (using KMS)
+#
+# Ensure SQS queues have Server-Side Encryption (SSE) enabled.
 # 
 # Default Conditions:
+#
 # - PASS: SQS has encryption enabled
 # - FAIL: SQS does not have SQS encryption enabled
 #
-# Resolution/Remediation:
+# Remediation:
+#
 # - Open SQS console: https://console.aws.amazon.com/sqs
 # - Select the queue
 # - Select the [Queue Actions] dropdown menu.
 # - Select [Configure Queue]
 # - Check [Use SSE] and select the KMS key
 # - [Save Changes]
-
+#
 
 #    ______     ___     ____  _____   ________   _____     ______   
 #  .' ___  |  .'   `.  |_   \|_   _| |_   __  | |_   _|  .' ___  |  
@@ -44,7 +48,8 @@
 # | |        | |   | |   | |\ \| |     |  _|      | |   | |   ____  
 # \ `.___.'\ \  `-'  /  _| |_\   |_   _| |_      _| |_  \ `.___]  | 
 #  `.____ .'  `.___.'  |_____|\____| |_____|    |_____|  `._____.'  
-# Configurable options                                                                  
+#
+
 @options = {  
   # When a resource has one or more matching tags, the resource will be excluded from the checks
   # and a PASS alert is generated
@@ -61,8 +66,6 @@
 
   # Case sensitivity when comparint the tag key & value
   case_insensitive: true,
-
-
 }
 
 #    ______   ____  ____   ________     ______   ___  ____     ______   
@@ -71,13 +74,14 @@
 # | |          |  __  |     |  _| _  | |          |  __'.     _.____`.  
 # \ `.___.'\  _| |  | |_   _| |__/ | \ `.___.'\  _| |  \ \_  | \____) | 
 #  `.____ .' |____||____| |________|  `.____ .' |____||____|  \______.' 
+#
                                                                       
-# deep inspection attribute will be included in each alert
 configure do |c|
     c.deep_inspection   = [:queue_arn, :queue_url, :created_time,  :last_modified, :kms_key_id]
 end
 
 def perform(aws)
+
   aws.sqs.list_queues[:queue_urls].each do | queue_url |
     queue_attributes = aws.sqs.get_queue_attributes(queue_url: queue_url, attribute_names: ["All"])[:attributes]
     queue_arn =  queue_attributes["QueueArn"]
@@ -90,14 +94,14 @@ def perform(aws)
       })
     if queue_attributes.key?("KmsMasterKeyId")
       set_data(kms_key_id: queue_attributes["KmsMasterKeyId"])
-      pass(message: "SQS queue #{queue_arn} has encryption enabled", resource_id: queue_arn)
+      pass(message: "SQS queue #{queue_arn} has encryption enabled.", resource_id: queue_arn)
     else
       if @options[:exclude_on_tag].count > 0
 
         begin
           tags = aws.sqs.list_queue_tags(queue_url: queue_url)[:tags]
           if get_tag_matches(@options[:exclude_on_tag], tags).count > 0
-            pass(message: "SQS queue #{queue_arn} does not have encryption enabled. Alert set to pass due to the tags", resource_id: queue_arn, tags: tags, options: @options)
+            pass(message: "SQS queue #{queue_arn} does not have encryption enabled. Alert set to pass due to the tags.", resource_id: queue_arn, tags: tags, options: @options)
             next
           end          
         rescue StandardError => e
@@ -109,10 +113,9 @@ def perform(aws)
             next
           end
         end
-        
       end
 
-      fail(message: "SQS queue #{queue_arn} does not have encryption enabled", resource_id: queue_arn)
+      fail(message: "SQS queue #{queue_arn} does not have encryption enabled.", resource_id: queue_arn)
 
     end
   end
@@ -120,7 +123,9 @@ end
 
 
 # Return the number of matching tags if one of the tag key-value pair matches
+#
 def get_tag_matches(option_tags, aws_tags)
+
   matches = []
 
   option_tags.each do | option_tag |
