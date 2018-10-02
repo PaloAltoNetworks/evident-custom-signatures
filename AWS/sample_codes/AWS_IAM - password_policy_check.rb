@@ -107,15 +107,20 @@ end
 
 def valid_password_policy?(password_policy)
   @options.each do | key, val |
-    return false if password_policy[key].blank?
+    return false if password_policy[key].nil?
   end
 
   password_policy[:minimum_password_length] >= @options[:minimum_password_length] &&
-  password_policy[:require_symbols] == @options[:require_symbols] &&
-  password_policy[:require_numbers] == @options[:require_numbers] &&
-  password_policy[:require_uppercase_characters] == @options[:require_uppercase_characters] &&
-  password_policy[:require_lowercase_characters] == @options[:require_lowercase_characters] &&
-  password_policy[:allow_users_to_change_password] == @options[:allow_users_to_change_password] &&
+  (@options[:require_symbols] == false ||
+  password_policy[:require_symbols] == @options[:require_symbols]) &&
+  (@options[:require_numbers] == false ||
+  password_policy[:require_numbers] == @options[:require_numbers]) &&
+  (@options[:require_uppercase_characters] == false ||
+  password_policy[:require_uppercase_characters] == @options[:require_uppercase_characters]) &&
+  (@options[:require_lowercase_characters] == false ||
+  password_policy[:require_lowercase_characters] == @options[:require_lowercase_characters]) &&
+  (@options[:allow_users_to_change_password] == false ||
+  password_policy[:allow_users_to_change_password] == @options[:allow_users_to_change_password]) &&
   password_policy[:max_password_age] <= @options[:max_password_age] &&
   password_policy[:password_reuse_prevention] >= @options[:password_reuse_prevention]
 end
