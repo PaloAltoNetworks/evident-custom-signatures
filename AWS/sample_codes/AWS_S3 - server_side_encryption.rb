@@ -1,70 +1,79 @@
-#
 # Copyright (c) 2013, 2014, 2015, 2016, 2017, 2018. Evident.io (Evident). All Rights Reserved. 
+# 
 #   Evident.io shall retain all ownership of all right, title and interest in and to 
 #   the Licensed Software, Documentation, Source Code, Object Code, and API's ("Deliverables"), 
-#   including (a) all information and technology capable of general application to Evident.io's customers; 
-#   and (b) any works created by Evident.io prior to its commencement of any Services for Customer. 
-#
+#   including (a) all information and technology capable of general application to Evident.io's
+#   customers; and (b) any works created by Evident.io prior to its commencement of any
+#   Services for Customer.
+# 
 # Upon receipt of all fees, expenses and taxes due in respect of the relevant Services, 
 #   Evident.io grants the Customer a perpetual, royalty-free, non-transferable, license to 
-#   use, copy, configure and translate any Deliverable solely for internal business operations of the Customer 
-#   as they relate to the Evident.io platform and products, 
-#   and always subject to Evident.io's underlying intellectual property rights.
-#
+#   use, copy, configure and translate any Deliverable solely for internal business operations
+#   of the Customer as they relate to the Evident.io platform and products, and always
+#   subject to Evident.io's underlying intellectual property rights.
+# 
 # IN NO EVENT SHALL EVIDENT.IO BE LIABLE TO ANY PARTY FOR DIRECT, INDIRECT, SPECIAL, 
 #   INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING LOST PROFITS, ARISING OUT OF 
-#   THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, 
-#   EVEN IF EVIDENT.IO HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
+#   THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF EVIDENT.IO HAS BEEN HAS BEEN
+#   ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+# 
 # EVIDENT.IO SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-#  THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. 
-#  THE SOFTWARE AND ACCOMPANYING DOCUMENTATION, IF ANY, PROVIDED HEREUNDER IS PROVIDED "AS IS". 
-#  EVIDENT.IO HAS NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+#   THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. 
+#   THE SOFTWARE AND ACCOMPANYING DOCUMENTATION, IF ANY, PROVIDED HEREUNDER IS PROVIDED "AS IS". 
+#   EVIDENT.IO HAS NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS,
+#   OR MODIFICATIONS.
 #
-
 # Description:
-# Check S3 bucket policy for Server Side Encryption setting
-# http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingServerSideEncryption.html
 #
-# For simplicity, per AWS documentation above, SSE is considered as enabled the bucket has one of the following
-# conditions in the statement
-# Option 1: 
-# {
-#   "Sid": "DenyIncorrectEncryptionHeader",
-#   "Effect": "Deny",
-#   "Principal": "*",
-#   "Action": "s3:PutObject",
-#   "Resource": "arn:aws:s3:::YourBucket/*",
-#   "Condition": {
-#     "StringNotEquals": {
-#       "s3:x-amz-server-side-encryption": "AES256"
+# Ensure S3 bucket policy has Server Side Encryption enabled.
+# 
+# This signature checks both S3 bucket properties and S3 bucket policy for SSE enforcement
+# OPTION 1 - S3 BUCKET SETTINGS (recommended)
+#     Enable "Default Encryption" on S3 bucket settings
+#     https://aws.amazon.com/blogs/aws/new-amazon-s3-encryption-security-features/
+#
+# OPTION 2 - BUCKET POLICY
+#     http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingServerSideEncryption.html
+#     For simplicity, per AWS documentation above, SSE is enforced if it finds one of the following policy statement
+# 
+#     variation 1 - enforce AWS256 (can be set to aws:kms as well): 
+#     {
+#       "Sid": "DenyIncorrectEncryptionHeader",
+#       "Effect": "Deny",
+#       "Principal": "*",
+#       "Action": "s3:PutObject",
+#       "Resource": "arn:aws:s3:::YourBucket/*",
+#       "Condition": {
+#         "StringNotEquals": {
+#           "s3:x-amz-server-side-encryption": "AES256"
+#         }
+#       }
 #     }
-#   }
-# }
 #
-# Option 2:
-# {
-#   "Sid": "DenyUnEncryptedObjectUploads",
-#   "Effect": "Deny",
-#   "Principal": "*",
-#   "Action": "s3:PutObject",
-#   "Resource": "arn:aws:s3:::YourBucket/*",
-#   "Condition": {
-#     "Null": {
-#      "s3:x-amz-server-side-encryption": "true"
-#    }
-#   }
-# }
+#     variation 2 - Enforce SSE:
+#     {
+#       "Sid": "DenyUnEncryptedObjectUploads",
+#       "Effect": "Deny",
+#       "Principal": "*",
+#       "Action": "s3:PutObject",
+#       "Resource": "arn:aws:s3:::YourBucket/*",
+#       "Condition": {
+#         "Null": {
+#         "s3:x-amz-server-side-encryption": "true"
+#         }
+#       }
+#     }
 #
 # 
 # Default Conditions:
-# - PASS: S3 bucket has SSE enabled
-# - FAIL: S3 bucket does not have SSE enabled, or does not have S3 bucket policy set
+#
+# - PASS: S3 bucket has SSE enabled (through bucket settings or bucket policy)
+# - FAIL: S3 bucket does not have SSE enabled
 #
 # Resolution/Remediation:
-# - Adjust the S3 bucket policy to enable SSE
 #
-
+# - Change the bucket default encryption settings to either KMS or AES256 (see option 1)
+#
 
 #    ______     ___     ____  _____   ________   _____     ______   
 #  .' ___  |  .'   `.  |_   \|_   _| |_   __  | |_   _|  .' ___  |  
@@ -72,7 +81,8 @@
 # | |        | |   | |   | |\ \| |     |  _|      | |   | |   ____  
 # \ `.___.'\ \  `-'  /  _| |_\   |_   _| |_      _| |_  \ `.___]  | 
 #  `.____ .'  `.___.'  |_____|\____| |_____|    |_____|  `._____.'  
-# Configurable options    
+#
+
 @options = {
   # When a resource has one or more matching tags, the resource will be excluded from the checks
   # and a PASS alert is generated
@@ -88,17 +98,14 @@
   exclude_on_tag: [
   ],
 
-
   # Case sensitivity when comparint the tag key & value
   case_insensitive: true,
-
 
   # List the buckets that you want to be excluded from the checks.
   # Case Sensitive
   # Example:
   #  bucket_whitelist: ['www.mywebsite.com', 'www.yourwebsite.com'],
   bucket_whitelist: [],
-
 
   # If you specify a regex, bucket that match the regex will be excluded from the check
   # Example:
@@ -109,21 +116,20 @@
   exclude_bucket_on_regex: nil ,
 }
 
-
 #    ______   ____  ____   ________     ______   ___  ____     ______   
 #  .' ___  | |_   ||   _| |_   __  |  .' ___  | |_  ||_  _|  .' ____ \  
 # / .'   \_|   | |__| |     | |_ \_| / .'   \_|   | |_/ /    | (___ \_| 
 # | |          |  __  |     |  _| _  | |          |  __'.     _.____`.  
 # \ `.___.'\  _| |  | |_   _| |__/ | \ `.___.'\  _| |  \ \_  | \____) | 
 #  `.____ .' |____||____| |________|  `.____ .' |____||____|  \______.' 
+#
                                                                       
-# deep inspection attribute will be included in each alert
 configure do |c|
-    c.deep_inspection   = [:bucket_name, :creation_date, :offending_statements, :policy_doc, :options, :encryption_config]
+  c.deep_inspection   = [:bucket_name, :creation_date, :offending_statements, :policy_doc, :options, :encryption_config]
 end
 
-
 def perform(aws)
+
   begin
     aws.s3.list_buckets[:buckets].each do |resource|
       check_resource(resource,aws)
@@ -134,7 +140,6 @@ def perform(aws)
   end
   
 end
-
 
 
 def check_resource(resource,aws)
@@ -201,7 +206,6 @@ def check_resource(resource,aws)
 end
 
 
-
 def get_bucket_exclusion_cause(aws, bucket_name)
   # Check to see if the bucket should be included base on its tags
   if @options[:exclude_on_tag].count > 0
@@ -250,34 +254,6 @@ end
 # For simplicity, we assume that user will follow one of the documented way of
 # enabling SSE, listed in this doc: 
 # http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingServerSideEncryption.html
-#
-# Option 1: 
-# {
-#   "Sid": "DenyIncorrectEncryptionHeader",
-#   "Effect": "Deny",
-#   "Principal": "*",
-#   "Action": "s3:PutObject",
-#   "Resource": "arn:aws:s3:::YourBucket/*",
-#   "Condition": {
-#     "StringNotEquals": {
-#       "s3:x-amz-server-side-encryption": "AES256"
-#     }
-#   }
-# }
-#
-# Option 2:
-# {
-#   "Sid": "DenyUnEncryptedObjectUploads",
-#   "Effect": "Deny",
-#   "Principal": "*",
-#   "Action": "s3:PutObject",
-#   "Resource": "arn:aws:s3:::YourBucket/*",
-#   "Condition": {
-#     "Null": {
-#      "s3:x-amz-server-side-encryption": "true"
-#    }
-#   }
-# }
 def statement_has_sse?(statement)
   return false if statement["Effect"] == "Allow"
 
@@ -310,10 +286,8 @@ def statement_has_sse?(statement)
     end
   end
 
-
   return false
 end
-
 
 
 # Return the number of matching tags if one of the tag key-value pair matches

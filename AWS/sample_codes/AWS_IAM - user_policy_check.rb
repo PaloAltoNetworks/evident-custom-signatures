@@ -1,36 +1,37 @@
-#
 # Copyright (c) 2013, 2014, 2015, 2016, 2017, 2018. Evident.io (Evident). All Rights Reserved. 
+# 
 #   Evident.io shall retain all ownership of all right, title and interest in and to 
 #   the Licensed Software, Documentation, Source Code, Object Code, and API's ("Deliverables"), 
-#   including (a) all information and technology capable of general application to Evident.io's customers; 
-#   and (b) any works created by Evident.io prior to its commencement of any Services for Customer. 
-#
+#   including (a) all information and technology capable of general application to Evident.io's
+#   customers; and (b) any works created by Evident.io prior to its commencement of any
+#   Services for Customer.
+# 
 # Upon receipt of all fees, expenses and taxes due in respect of the relevant Services, 
 #   Evident.io grants the Customer a perpetual, royalty-free, non-transferable, license to 
-#   use, copy, configure and translate any Deliverable solely for internal business operations of the Customer 
-#   as they relate to the Evident.io platform and products, 
-#   and always subject to Evident.io's underlying intellectual property rights.
-#
+#   use, copy, configure and translate any Deliverable solely for internal business operations
+#   of the Customer as they relate to the Evident.io platform and products, and always
+#   subject to Evident.io's underlying intellectual property rights.
+# 
 # IN NO EVENT SHALL EVIDENT.IO BE LIABLE TO ANY PARTY FOR DIRECT, INDIRECT, SPECIAL, 
 #   INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING LOST PROFITS, ARISING OUT OF 
-#   THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, 
-#   EVEN IF EVIDENT.IO HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
+#   THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF EVIDENT.IO HAS BEEN HAS BEEN
+#   ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+# 
 # EVIDENT.IO SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-#  THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. 
-#  THE SOFTWARE AND ACCOMPANYING DOCUMENTATION, IF ANY, PROVIDED HEREUNDER IS PROVIDED "AS IS". 
-#  EVIDENT.IO HAS NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+#   THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. 
+#   THE SOFTWARE AND ACCOMPANYING DOCUMENTATION, IF ANY, PROVIDED HEREUNDER IS PROVIDED "AS IS". 
+#   EVIDENT.IO HAS NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS,
+#   OR MODIFICATIONS.
 #
-
 # Description:
-# Check for IAM user policy violation
 #
-# This custom signature scans IAM Users's overall permisison (inline and attached policy, group policy)
-# against a set of blacklisted permission
-# against the 'approved' list of IAM users
+# Ensure IAM user policies are not in violation.
 #
+# This custom signature scans IAM Users overall permisisons (inline, attached and
+# group policy) against a set of blacklisted permissions.
 #
 # Offending policies are included in deep_inspection: 
+#
 # "offending_policies" : {
 #    inline_policy: [],
 #    managed_policy: [],
@@ -38,11 +39,13 @@
 # }
 # 
 # Default Conditions:
-# - PASS: No violation found on the user permission
+#
+# - PASS: No violation found in the IAM User permissions
 # - PASS: IAM User is in the 'approved list' (skipped from the check)
 # - FAIL: IAM User is not in the 'approved list' and violation found 
 #
-# Resolution/Remediation:
+# Remediation:
+#
 # - Remove the permission or group from IAM user
 #
 
@@ -52,11 +55,12 @@
 # | |        | |   | |   | |\ \| |     |  _|      | |   | |   ____  
 # \ `.___.'\ \  `-'  /  _| |_\   |_   _| |_      _| |_  \ `.___]  | 
 #  `.____ .'  `.___.'  |_____|\____| |_____|    |_____|  `._____.'  
-# Configurable options                                                                  
+#
+
 @options = {  
   # List of blacklisted actions 
-  # If one or more blacklisted action is found and the IAM resource is not in the 'approved' list,
-  # a FAIL alert will be generated
+  # If one or more blacklisted actions are found and the IAM user is not in the 'approved' list,
+  # a FAIL alert will be generated.
   # 
   # In addition to checking the 'blacklisted_actions',
   # this signature also checks for "*" in the actions:
@@ -76,11 +80,10 @@
     "ec2:*"
   ],
 
-
   # List of "Approved" IAM user names.
   # IAM users listed in this list will NOT be checked
   #  
-  # case sensitive
+  # Case sensitive
   approved_list: [
     "theAdmin"
   ]
@@ -92,18 +95,13 @@
 # | |          |  __  |     |  _| _  | |          |  __'.     _.____`.  
 # \ `.___.'\  _| |  | |_   _| |__/ | \ `.___.'\  _| |  \ \_  | \____) | 
 #  `.____ .' |____||____| |________|  `.____ .' |____||____|  \______.' 
+#
                                                                       
-# deep inspection attribute will be included in each alert
 configure do |c|
-  # By default, a custom signature is executed against all region. 
-  # In this case, we can query IAM from one of the region. 
-  # So, let's restrict the region to just us-east-1
   c.valid_regions     = [:us_east_1]
-  # override the region displayed in the alert from us-east-1 to global
   c.display_as        = :global
   c.deep_inspection   = [:user_name, :user_id, :create_date, :arn, :linked_groups, :offending_policies, :options]
 end
-
 
 def perform(aws)
   if @options[:blacklisted_actions].count < 1
@@ -153,7 +151,6 @@ def perform(aws)
       
     end
 
-
     found_offending_policies = false
     offending_policies.each do | key, violations |
       found_offending_policies = true if violations.count > 0
@@ -168,10 +165,7 @@ def perform(aws)
     end
 
   end
-
-
 end
-
 
 
 ##############################################################################
@@ -276,7 +270,6 @@ def evaluate_managed_policy(aws,attached_policy)
 
     policy_doc = JSON.parse(URI.decode(policy_doc)) if policy_doc.is_a? String
 
-
     @managed_policies[attached_policy[:policy_name]] = {
       policy_name: attached_policy[:policy_name],
       policy_arn: policy_arn,
@@ -286,7 +279,6 @@ def evaluate_managed_policy(aws,attached_policy)
     }
   end
 end
-
 
 
 ###################################################################################
@@ -314,7 +306,6 @@ def get_offending_statement(policy_doc)
 
   return offending_statements
 end
-
 
 
 ###################################################################################
@@ -373,5 +364,4 @@ def statement_has_offending_action?(statement)
   else
     return false
   end
-
 end

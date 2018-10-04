@@ -35,29 +35,6 @@
 # - Change/remove the offending policy
 #
 
-
-##
-# This custom signature requires additional permission. 
-# Sample policy:
-# {
-#   "Version": "2012-10-17",
-#   "Statement": [
-#     {
-#       "Sid": "eioECR",
-#       "Effect": "Allow",
-#       "Action": [
-#         "ecr:DescribeRepositories",
-#         "ecr:GetRepositoryPolicy"
-#       ],
-#       "Resource": [
-#         "*"
-#       ]
-#     }
-#   ]
-# }
-#
-
-
 #    ______     ___     ____  _____   ________   _____     ______   
 #  .' ___  |  .'   `.  |_   \|_   _| |_   __  | |_   _|  .' ___  |  
 # / .'   \_| /  .-.  \   |   \ | |     | |_ \_|   | |   / .'   \_|  
