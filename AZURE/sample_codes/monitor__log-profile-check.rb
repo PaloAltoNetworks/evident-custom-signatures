@@ -42,8 +42,8 @@ def perform(azure)
     fail(message: "Activity Log export is not enabled on this subscription", resource_id: nil)
   else
     profile = profile[0]
-    retention_days = profile.retention_policy.instance_variable_get("@days")
-    retention_enabled = profile.retention_policy.instance_variable_get("@enabled")
+    retention_days = profile.retention_policy.days
+    retention_enabled = profile.retention_policy.enabled
 
     alert_attr = {
       id: profile.id,
